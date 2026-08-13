@@ -99,9 +99,42 @@ if st.button(
     use_container_width=True
 ):
 
-    st.info(
-        f"Spray button pressed for {dosage:.0f} ml"
-    )
+    try:
+
+        response = requests.post(
+            BACKEND_URL + "/spray",
+            json={
+                "amount_ml": dosage
+            },
+            timeout=15
+        )
+
+        if response.status_code == 200:
+
+            data = response.json()
+
+            st.success(
+                f"Spray command sent: "
+                f"{data['amount_ml']:.0f} ml"
+            )
+
+        elif response.status_code == 409:
+
+            st.warning(
+                "A spray command is already pending."
+            )
+
+        else:
+
+            st.error(
+                response.text
+            )
+
+    except Exception as e:
+
+        st.error(
+            f"Backend connection failed: {e}"
+        )
 
 
 # ==========================================
