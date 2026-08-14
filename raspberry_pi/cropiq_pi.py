@@ -6,7 +6,7 @@ import time
 # CROP IQ BACKEND
 # ==========================================
 
-BACKEND_URL = "PASTE_YOUR_RENDER_URL_HERE"
+BACKEND_URL = "https://cropiq-backend-mecl.onrender.com"
 
 
 # ==========================================
