@@ -107,3 +107,28 @@ def spray(request: SprayRequest):
         "amount_ml": amount,
         "status": spray_status
     }
+
+# ==========================================
+# RASPBERRY PI GETS SPRAY COMMAND
+# ==========================================
+
+@app.get("/command")
+def get_command():
+
+    global spray_command
+
+    if spray_command is None:
+
+        return {
+            "command": None
+        }
+
+    amount = spray_command
+
+    # Remove command after Raspberry Pi receives it
+    spray_command = None
+
+    return {
+        "command": "SPRAY",
+        "amount_ml": amount
+    }
