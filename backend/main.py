@@ -1,53 +1,69 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+
 app = FastAPI(title="CropIQ API")
 
 
-# ==========================================
+# =====================================================
 # SYSTEM STATE
-# ==========================================
+# =====================================================
 
 spray_command = None
+
 spray_status = "Ready"
+
 sprayed_amount = 0.0
 
 
-# ==========================================
+# =====================================================
 # DOSAGE MODEL
-# ==========================================
+# =====================================================
 
 class SprayRequest(BaseModel):
+
     amount_ml: float
 
 
-# ==========================================
+# =====================================================
+# PI STATUS MODEL
+# =====================================================
+
+class StatusRequest(BaseModel):
+
+    status: str
+    amount_ml: float = 0.0
+
+
+# =====================================================
 # HOME
-# ==========================================
+# =====================================================
 
 @app.get("/")
 def home():
+
     return {
         "project": "CropIQ",
         "message": "CropIQ backend is running"
     }
 
 
-# ==========================================
-# CONNECTION TEST
-# ==========================================
+# =====================================================
+# TEST
+# =====================================================
 
 @app.get("/test")
 def test():
+
     return {
         "status": "success",
         "message": "Backend connection is working"
     }
 
 
-# ==========================================
+# =====================================================
 # GET SYSTEM STATE
-# ==========================================
+# =====================================================
 
 @app.get("/state")
 def get_state():
@@ -59,9 +75,9 @@ def get_state():
     }
 
 
-# ==========================================
-# SPRAY REQUEST
-# ==========================================
+# =====================================================
+# CREATE SPRAY COMMAND
+# =====================================================
 
 @app.post("/spray")
 def spray(request: SprayRequest):
@@ -72,21 +88,20 @@ def spray(request: SprayRequest):
 
     amount = request.amount_ml
 
-    # Check dosage
     if amount <= 0:
+
         raise HTTPException(
             status_code=400,
             detail="Dosage must be greater than 0 ml"
         )
 
     if amount > 500:
+
         raise HTTPException(
             status_code=400,
             detail="Maximum dosage is 500 ml"
         )
 
-    # Don't accept another command
-    # if one is already waiting
     if spray_command is not None:
 
         raise HTTPException(
@@ -94,10 +109,8 @@ def spray(request: SprayRequest):
             detail="A spray command is already pending"
         )
 
-    # Store command
     spray_command = amount
 
-    # Update status
     spray_status = "Spraying..."
 
     sprayed_amount = 0.0
@@ -108,9 +121,10 @@ def spray(request: SprayRequest):
         "status": spray_status
     }
 
-# ==========================================
-# RASPBERRY PI GETS SPRAY COMMAND
-# ==========================================
+
+# =====================================================
+# RASPBERRY PI GET COMMAND
+# =====================================================
 
 @app.get("/command")
 def get_command():
@@ -125,10 +139,31 @@ def get_command():
 
     amount = spray_command
 
-    # Remove command after Raspberry Pi receives it
+    # Command is consumed by Raspberry Pi
     spray_command = None
 
     return {
         "command": "SPRAY",
         "amount_ml": amount
+    }
+
+
+# =====================================================
+# RASPBERRY PI REPORTS STATUS
+# =====================================================
+
+@app.post("/status")
+def update_status(request: StatusRequest):
+
+    global spray_status
+    global sprayed_amount
+
+    spray_status = request.status
+
+    sprayed_amount = request.amount_ml
+
+    return {
+        "message": "Status updated",
+        "status": spray_status,
+        "amount_ml": sprayed_amount
     }
