@@ -63,11 +63,84 @@ except Exception as e:
 # PLANT IMAGE
 # ==========================================
 
+# =====================================================
+# PLANT IMAGE
+# =====================================================
+
 st.markdown("### 🌿 Plant Image")
 
-st.info(
-    "Raspberry Pi camera image will appear here."
-)
+
+# -----------------------------------------
+# CAPTURE BUTTON
+# -----------------------------------------
+
+if st.button(
+    "📷 CAPTURE",
+    use_container_width=True
+):
+
+    try:
+
+        response = requests.post(
+            BACKEND_URL + "/capture",
+            timeout=15
+        )
+
+        if response.status_code == 200:
+
+            st.success(
+                "Capture command sent to Raspberry Pi."
+            )
+
+        elif response.status_code == 409:
+
+            st.warning(
+                "Another operation is currently running."
+            )
+
+        else:
+
+            st.error(
+                response.text
+            )
+
+    except Exception as e:
+
+        st.error(
+            f"Backend connection failed: {e}"
+        )
+
+
+# -----------------------------------------
+# DISPLAY LATEST IMAGE
+# -----------------------------------------
+
+try:
+
+    image_response = requests.get(
+        BACKEND_URL + "/latest-image",
+        timeout=10
+    )
+
+    if image_response.status_code == 200:
+
+        st.image(
+            image_response.content,
+            caption="Latest Plant Image",
+            use_container_width=True
+        )
+
+    else:
+
+        st.info(
+            "No plant image captured yet."
+        )
+
+except Exception:
+
+    st.warning(
+        "Unable to load plant image."
+    )
 
 
 # ==========================================
