@@ -2,16 +2,16 @@ import streamlit as st
 import requests
 
 
-# ==========================================
-# YOUR RENDER BACKEND URL
-# ==========================================
+# =====================================================
+# CONFIGURATION
+# =====================================================
 
 BACKEND_URL = "https://cropiq-backend-mecl.onrender.com"
 
 
-# ==========================================
-# PAGE CONFIGURATION
-# ==========================================
+# =====================================================
+# PAGE CONFIG
+# =====================================================
 
 st.set_page_config(
     page_title="CropIQ",
@@ -20,20 +20,106 @@ st.set_page_config(
 )
 
 
-# ==========================================
+# =====================================================
+# GET SYSTEM STATE
+# =====================================================
+
+def get_state():
+
+    try:
+
+        response = requests.get(
+            BACKEND_URL + "/state",
+            timeout=10
+        )
+
+        if response.status_code == 200:
+
+            return response.json()
+
+    except Exception:
+
+        pass
+
+    return None
+
+
+# =====================================================
+# DISPLAY STATUS
+# =====================================================
+
+def show_status():
+
+    state = get_state()
+
+    if state is None:
+
+        st.error(
+            "Backend unavailable"
+        )
+
+        return
+
+    current_status = state.get(
+        "status",
+        "Ready"
+    )
+
+    sprayed_amount = state.get(
+        "sprayed_amount",
+        0.0
+    )
+
+    if current_status == "Ready":
+
+        st.success(
+            "🟢 Ready"
+        )
+
+    elif current_status == "Spraying...":
+
+        st.warning(
+            "🟡 Spraying..."
+        )
+
+        if sprayed_amount > 0:
+
+            st.write(
+                f"Dispensed: "
+                f"**{sprayed_amount:.2f} ml**"
+            )
+
+    elif current_status == "Completed":
+
+        st.success(
+            "🟢 Completed"
+        )
+
+        st.write(
+            f"**{sprayed_amount:.2f} ml sprayed**"
+        )
+
+    else:
+
+        st.info(
+            current_status
+        )
+
+
+# =====================================================
 # TITLE
-# ==========================================
+# =====================================================
 
 st.title("🌱 CropIQ")
 
-st.subheader("Precision Spraying Dashboard")
+st.subheader(
+    "Precision Spraying Dashboard"
+)
 
 
-# ==========================================
-# BACKEND TEST
-# ==========================================
-
-st.markdown("### 🔗 Backend Connection")
+# =====================================================
+# BACKEND CONNECTION
+# =====================================================
 
 try:
 
@@ -44,76 +130,28 @@ try:
 
     if response.status_code == 200:
 
-        st.success("Backend connected successfully ✅")
+        st.success(
+            "Backend connected successfully ✅"
+        )
 
     else:
 
-        st.error("Backend returned an error")
+        st.error(
+            "Backend connection failed"
+        )
 
-except Exception as e:
+except Exception:
 
     st.error(
-        "Could not connect to backend"
+        "Backend unavailable"
     )
 
-    st.write(e)
-
-
-# ==========================================
-# PLANT IMAGE
-# ==========================================
 
 # =====================================================
 # PLANT IMAGE
 # =====================================================
 
 st.markdown("### 🌿 Plant Image")
-
-
-# -----------------------------------------
-# CAPTURE BUTTON
-# -----------------------------------------
-
-if st.button(
-    "📷 CAPTURE",
-    use_container_width=True
-):
-
-    try:
-
-        response = requests.post(
-            BACKEND_URL + "/capture",
-            timeout=15
-        )
-
-        if response.status_code == 200:
-
-            st.success(
-                "Capture command sent to Raspberry Pi."
-            )
-
-        elif response.status_code == 409:
-
-            st.warning(
-                "Another operation is currently running."
-            )
-
-        else:
-
-            st.error(
-                response.text
-            )
-
-    except Exception as e:
-
-        st.error(
-            f"Backend connection failed: {e}"
-        )
-
-
-# -----------------------------------------
-# DISPLAY LATEST IMAGE
-# -----------------------------------------
 
 try:
 
@@ -133,7 +171,7 @@ try:
     else:
 
         st.info(
-            "No plant image captured yet."
+            "Waiting for Raspberry Pi camera image..."
         )
 
 except Exception:
@@ -143,28 +181,24 @@ except Exception:
     )
 
 
-# ==========================================
+# =====================================================
 # DOSAGE
-# ==========================================
+# =====================================================
 
 st.markdown("### 💧 Dosage")
 
 dosage = st.number_input(
-    "Enter required amount (ml)",
+    "Enter required spray amount (ml)",
     min_value=1.0,
     max_value=500.0,
     value=25.0,
     step=1.0
 )
 
-st.write(
-    f"Selected dosage: **{dosage:.0f} ml**"
-)
 
-
-# ==========================================
+# =====================================================
 # SPRAY BUTTON
-# ==========================================
+# =====================================================
 
 if st.button(
     "🚿 SPRAY",
@@ -176,25 +210,27 @@ if st.button(
 
         response = requests.post(
             BACKEND_URL + "/spray",
+
             json={
                 "amount_ml": dosage
             },
+
             timeout=15
         )
 
         if response.status_code == 200:
 
-            data = response.json()
-
             st.success(
-                f"Spray command sent: "
-                f"{data['amount_ml']:.0f} ml"
+                f"Spray started: "
+                f"{dosage:.0f} ml"
             )
+
+            st.rerun()
 
         elif response.status_code == 409:
 
             st.warning(
-                "A spray command is already pending."
+                "A spray operation is already running."
             )
 
         else:
@@ -210,10 +246,10 @@ if st.button(
         )
 
 
-# ==========================================
-# SPRAY STATUS
-# ==========================================
+# =====================================================
+# STATUS
+# =====================================================
 
 st.markdown("### 📡 Spray Status")
 
-st.success("🟢 Ready")
+show_status()
