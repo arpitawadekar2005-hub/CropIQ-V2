@@ -117,7 +117,7 @@ def spray(request: SprayRequest):
     sprayed_amount = 0.0
 
     latest_image = None
-latest_image_type = "image/jpeg"
+    latest_image_type = "image/jpeg"
 
     return {
         "message": "Spray command created",
