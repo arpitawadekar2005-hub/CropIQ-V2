@@ -1,5 +1,6 @@
 import requests
 import time
+import cv2
 
 import RPi.GPIO as GPIO
 from gpiozero import OutputDevice
@@ -9,14 +10,18 @@ from gpiozero import OutputDevice
 # CONFIGURATION
 # =====================================================
 
-BACKEND_URL = "https://cropiq-backend-mecl.onrender.com"
+BACKEND_URL = "YOUR_RENDER_URL"
 
 RELAY_PIN = 17
-
 FLOW_PIN = 18
 
-PULSES_PER_ML = 280
+# Your measured calibration
+PULSES_PER_ML = 47.64
 
+# How often the camera uploads an image
+IMAGE_INTERVAL = 10
+
+# How often Raspberry Pi checks for spray command
 CHECK_INTERVAL = 2
 
 
@@ -34,10 +39,10 @@ GPIO.setup(
 
 
 # =====================================================
-# RELAY
+# RELAY SETUP
 # =====================================================
 
-# Active LOW relay
+# Your relay is Active LOW
 relay = OutputDevice(
     RELAY_PIN,
     active_high=False,
@@ -68,6 +73,21 @@ GPIO.add_event_detect(
 
 
 # =====================================================
+# CAMERA SETUP
+# =====================================================
+
+camera = cv2.VideoCapture(0)
+
+if not camera.isOpened():
+
+    print("ERROR: USB camera not found!")
+
+else:
+
+    print("Camera: READY")
+
+
+# =====================================================
 # SEND STATUS TO RENDER
 # =====================================================
 
@@ -76,6 +96,7 @@ def send_status(status, amount=0.0):
     try:
 
         response = requests.post(
+
             BACKEND_URL + "/status",
 
             json={
@@ -110,7 +131,9 @@ def get_command():
     try:
 
         response = requests.get(
+
             BACKEND_URL + "/command",
+
             timeout=10
         )
 
@@ -134,7 +157,7 @@ def get_command():
     except Exception as e:
 
         print(
-            "Connection error:",
+            "Backend connection error:",
             e
         )
 
@@ -142,7 +165,107 @@ def get_command():
 
 
 # =====================================================
-# SPRAY
+# CAPTURE AND UPLOAD PLANT IMAGE
+# =====================================================
+
+def upload_plant_image():
+
+    if not camera.isOpened():
+
+        print(
+            "Camera unavailable"
+        )
+
+        return
+
+    # Capture frame
+    ret, frame = camera.read()
+
+    if not ret:
+
+        print(
+            "Failed to capture image"
+        )
+
+        return
+
+    # Temporary image location
+    filename = "/tmp/cropiq_plant.jpg"
+
+    # Save image
+    success = cv2.imwrite(
+
+        filename,
+        frame,
+
+        [
+            cv2.IMWRITE_JPEG_QUALITY,
+            85
+        ]
+    )
+
+    if not success:
+
+        print(
+            "Failed to save image"
+        )
+
+        return
+
+    # Upload image to Render
+    try:
+
+        with open(
+            filename,
+            "rb"
+        ) as image_file:
+
+            files = {
+
+                "file": (
+
+                    "plant.jpg",
+                    image_file,
+                    "image/jpeg"
+                )
+            }
+
+            response = requests.post(
+
+                BACKEND_URL + "/upload-image",
+
+                files=files,
+
+                timeout=15
+            )
+
+        if response.status_code == 200:
+
+            print(
+                "Plant image uploaded successfully"
+            )
+
+        else:
+
+            print(
+                "Image upload failed:",
+                response.status_code
+            )
+
+            print(
+                response.text
+            )
+
+    except Exception as e:
+
+        print(
+            "Image upload error:",
+            e
+        )
+
+
+# =====================================================
+# SPRAY FUNCTION
 # =====================================================
 
 def spray(amount_ml):
@@ -150,11 +273,17 @@ def spray(amount_ml):
     global pulse_count
 
     print()
-    print("===================================")
+    print(
+        "==================================="
+    )
+
     print(
         f"STARTING SPRAY: {amount_ml:.2f} ml"
     )
-    print("===================================")
+
+    print(
+        "==================================="
+    )
 
     # Calculate required pulses
     target_pulses = (
@@ -165,19 +294,16 @@ def spray(amount_ml):
         f"Target pulses: {target_pulses:.0f}"
     )
 
-    # Reset counter
+    # Reset pulse count
     pulse_count = 0
 
-    # Tell dashboard
+    # Inform dashboard
     send_status(
         "Spraying...",
         0.0
     )
 
-    # -------------------------------------------------
-    # START PUMP
-    # -------------------------------------------------
-
+    # Start pump
     print("Relay ON")
     print("Pump ON")
 
@@ -188,13 +314,17 @@ def spray(amount_ml):
         while pulse_count < target_pulses:
 
             current_ml = (
+
                 pulse_count /
                 PULSES_PER_ML
+
             )
 
             print(
+
                 f"\rPulses: {pulse_count} | "
                 f"Volume: {current_ml:.2f} ml",
+
                 end="",
                 flush=True
             )
@@ -203,10 +333,8 @@ def spray(amount_ml):
 
     finally:
 
-        # -------------------------------------------------
-        # SAFETY: ALWAYS TURN PUMP OFF
-        # -------------------------------------------------
-
+        # SAFETY:
+        # Pump must always turn OFF
         relay.off()
 
         print()
@@ -215,53 +343,116 @@ def spray(amount_ml):
 
     # Calculate actual volume
     actual_ml = (
+
         pulse_count /
         PULSES_PER_ML
+
     )
 
     print(
         f"Actual volume: {actual_ml:.2f} ml"
     )
 
-    # -------------------------------------------------
-    # SEND COMPLETED STATUS
-    # -------------------------------------------------
-
+    # Tell backend spraying is complete
     send_status(
         "Completed",
         actual_ml
     )
 
-    print("Spraying completed.")
+    print(
+        "Spraying completed."
+    )
+
     print()
 
 
 # =====================================================
-# MAIN PROGRAM
+# STARTUP
 # =====================================================
 
-print("===================================")
-print("          CropIQ Raspberry Pi")
-print("===================================")
-print("Relay: READY")
-print("Flow Sensor: READY")
-print("Backend: CONNECTING")
-print("===================================")
+print()
+print(
+    "==================================="
+)
+
+print(
+    "       CropIQ Raspberry Pi"
+)
+
+print(
+    "==================================="
+)
+
+print(
+    "Relay: READY"
+)
+
+print(
+    "Flow Sensor: READY"
+)
+
+if camera.isOpened():
+
+    print(
+        "Camera: READY"
+    )
+
+else:
+
+    print(
+        "Camera: NOT FOUND"
+    )
+
+print(
+    "Backend: CONNECTING"
+)
+
+print(
+    "==================================="
+)
 
 
-# Make sure pump starts OFF
+# Make absolutely sure pump is OFF
 relay.off()
 
-# Tell dashboard that system is ready
+
+# Tell dashboard Raspberry Pi is ready
 send_status(
     "Ready",
     0.0
 )
 
 
+# =====================================================
+# MAIN LOOP
+# =====================================================
+
+last_image_time = 0
+
+
 try:
 
     while True:
+
+        # ---------------------------------------------
+        # CAMERA
+        # ---------------------------------------------
+
+        if (
+
+            time.time() -
+            last_image_time
+
+        ) >= IMAGE_INTERVAL:
+
+            upload_plant_image()
+
+            last_image_time = time.time()
+
+
+        # ---------------------------------------------
+        # SPRAY COMMAND
+        # ---------------------------------------------
 
         amount = get_command()
 
@@ -269,22 +460,40 @@ try:
 
             spray(amount)
 
+
+        # Wait before checking again
         time.sleep(
             CHECK_INTERVAL
         )
 
 
+# =====================================================
+# STOP PROGRAM
+# =====================================================
+
 except KeyboardInterrupt:
 
     print()
-    print("Stopping CropIQ...")
+    print(
+        "Stopping CropIQ..."
+    )
 
+
+# =====================================================
+# CLEANUP
+# =====================================================
 
 finally:
 
-    # Safety shutdown
+    # Pump OFF
     relay.off()
 
+    # Release camera
+    if camera.isOpened():
+
+        camera.release()
+
+    # Cleanup GPIO
     GPIO.cleanup()
 
     print(
