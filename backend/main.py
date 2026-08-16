@@ -1,453 +1,254 @@
-import requests
-import time
-import cv2
-
-import RPi.GPIO as GPIO
-from gpiozero import OutputDevice
+from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.responses import Response
+from pydantic import BaseModel
 
 
-# =====================================================
-# CONFIGURATION
-# =====================================================
-
-BACKEND_URL = "YOUR_RENDER_URL"
-
-RELAY_PIN = 17
-FLOW_PIN = 18
-
-PULSES_PER_ML = 47.64
-
-CHECK_INTERVAL = 2
+app = FastAPI(title="CropIQ API")
 
 
 # =====================================================
-# GPIO SETUP
+# SYSTEM STATE
 # =====================================================
 
-GPIO.setmode(GPIO.BCM)
+spray_command = None
 
-GPIO.setup(
-    FLOW_PIN,
-    GPIO.IN,
-    pull_up_down=GPIO.PUD_UP
-)
+spray_status = "Ready"
 
+sprayed_amount = 0.0
 
-# =====================================================
-# RELAY
-# =====================================================
+latest_image = None
 
-relay = OutputDevice(
-    RELAY_PIN,
-    active_high=False,
-    initial_value=False
-)
+latest_image_type = "image/jpeg"
 
 
 # =====================================================
-# FLOW SENSOR
+# DOSAGE MODEL
 # =====================================================
 
-pulse_count = 0
+class SprayRequest(BaseModel):
 
-
-def pulse_callback(channel):
-
-    global pulse_count
-
-    pulse_count += 1
-
-
-GPIO.add_event_detect(
-    FLOW_PIN,
-    GPIO.FALLING,
-    callback=pulse_callback,
-    bouncetime=1
-)
+    amount_ml: float
 
 
 # =====================================================
-# CAMERA
+# STATUS MODEL
 # =====================================================
 
-camera = cv2.VideoCapture(0)
+class StatusRequest(BaseModel):
 
-if camera.isOpened():
+    status: str
 
-    print("Camera: READY")
-
-else:
-
-    print("Camera: NOT FOUND")
+    amount_ml: float = 0.0
 
 
 # =====================================================
-# SEND STATUS
+# HOME
 # =====================================================
 
-def send_status(status, amount=0.0):
+@app.get("/")
+def home():
 
-    try:
+    return {
+        "project": "CropIQ",
+        "message": "CropIQ backend is running"
+    }
 
-        response = requests.post(
 
-            BACKEND_URL + "/status",
+# =====================================================
+# TEST
+# =====================================================
 
-            json={
-                "status": status,
-                "amount_ml": amount
-            },
+@app.get("/test")
+def test():
 
-            timeout=10
+    return {
+        "status": "success",
+        "message": "Backend connection is working"
+    }
+
+
+# =====================================================
+# SYSTEM STATE
+# =====================================================
+
+@app.get("/state")
+def get_state():
+
+    return {
+        "status": spray_status,
+        "sprayed_amount": sprayed_amount,
+        "command_pending": spray_command is not None,
+        "image_available": latest_image is not None
+    }
+
+
+# =====================================================
+# SPRAY COMMAND
+# =====================================================
+
+@app.post("/spray")
+def spray(request: SprayRequest):
+
+    global spray_command
+    global spray_status
+    global sprayed_amount
+
+    amount = request.amount_ml
+
+    if amount <= 0:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Dosage must be greater than 0 ml"
         )
 
-        print(
-            "Status:",
-            status,
-            "| Response:",
-            response.status_code
+    if amount > 500:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Maximum dosage is 500 ml"
         )
 
-    except Exception as e:
+    if spray_command is not None:
 
-        print(
-            "Status update error:",
-            e
+        raise HTTPException(
+            status_code=409,
+            detail="Another command is already pending"
         )
+
+    spray_command = {
+        "command": "SPRAY",
+        "amount_ml": amount
+    }
+
+    spray_status = "Spraying..."
+
+    sprayed_amount = 0.0
+
+    return {
+        "message": "Spray command created",
+        "amount_ml": amount,
+        "status": spray_status
+    }
 
 
 # =====================================================
-# GET COMMAND
+# CAPTURE COMMAND
 # =====================================================
 
+@app.post("/capture")
+def capture():
+
+    global spray_command
+
+    if spray_command is not None:
+
+        raise HTTPException(
+            status_code=409,
+            detail="Another command is already pending"
+        )
+
+    spray_command = {
+        "command": "CAPTURE"
+    }
+
+    return {
+        "message": "Capture command created",
+        "command": "CAPTURE"
+    }
+
+
+# =====================================================
+# RASPBERRY PI GETS COMMAND
+# =====================================================
+
+@app.get("/command")
 def get_command():
 
-    try:
+    global spray_command
 
-        response = requests.get(
+    if spray_command is None:
 
-            BACKEND_URL + "/command",
+        return {
+            "command": None
+        }
 
-            timeout=10
+    command = spray_command
+
+    # Remove command after Pi receives it
+    spray_command = None
+
+    return command
+
+
+# =====================================================
+# RASPBERRY PI SENDS STATUS
+# =====================================================
+
+@app.post("/status")
+def update_status(request: StatusRequest):
+
+    global spray_status
+    global sprayed_amount
+
+    spray_status = request.status
+
+    sprayed_amount = request.amount_ml
+
+    return {
+        "message": "Status updated",
+        "status": spray_status,
+        "amount_ml": sprayed_amount
+    }
+
+
+# =====================================================
+# RASPBERRY PI UPLOADS IMAGE
+# =====================================================
+
+@app.post("/upload-image")
+async def upload_image(
+    file: UploadFile = File(...)
+):
+
+    global latest_image
+    global latest_image_type
+
+    image_data = await file.read()
+
+    if not image_data:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Empty image"
         )
 
-        if response.status_code != 200:
+    latest_image = image_data
 
-            print(
-                "Command error:",
-                response.status_code
-            )
+    latest_image_type = (
+        file.content_type or "image/jpeg"
+    )
 
-            return None
+    return {
+        "message": "Image uploaded successfully"
+    }
 
-        data = response.json()
 
-        return data
+# =====================================================
+# GET LATEST IMAGE
+# =====================================================
 
-    except Exception as e:
+@app.get("/latest-image")
+def get_latest_image():
 
-        print(
-            "Backend connection error:",
-            e
+    if latest_image is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="No image available"
         )
 
-    return None
-
-
-# =====================================================
-# CAPTURE IMAGE
-# =====================================================
-
-def capture_image():
-
-    print()
-    print("===================================")
-    print("Capturing plant image...")
-    print("===================================")
-
-    if not camera.isOpened():
-
-        print(
-            "ERROR: Camera not available"
-        )
-
-        return
-
-    # Capture image
-    ret, frame = camera.read()
-
-    if not ret:
-
-        print(
-            "ERROR: Failed to capture image"
-        )
-
-        return
-
-    # Temporary file
-    filename = "/tmp/cropiq_plant.jpg"
-
-    # Save image
-    success = cv2.imwrite(
-
-        filename,
-        frame,
-
-        [
-            cv2.IMWRITE_JPEG_QUALITY,
-            85
-        ]
-    )
-
-    if not success:
-
-        print(
-            "ERROR: Could not save image"
-        )
-
-        return
-
-    print(
-        "Image captured successfully"
-    )
-
-    # Upload image
-    try:
-
-        with open(
-            filename,
-            "rb"
-        ) as image_file:
-
-            files = {
-
-                "file": (
-
-                    "plant.jpg",
-                    image_file,
-                    "image/jpeg"
-                )
-            }
-
-            response = requests.post(
-
-                BACKEND_URL + "/upload-image",
-
-                files=files,
-
-                timeout=15
-            )
-
-        if response.status_code == 200:
-
-            print(
-                "Image uploaded successfully"
-            )
-
-        else:
-
-            print(
-                "Image upload failed:",
-                response.status_code
-            )
-
-            print(
-                response.text
-            )
-
-    except Exception as e:
-
-        print(
-            "Image upload error:",
-            e
-        )
-
-
-# =====================================================
-# SPRAY
-# =====================================================
-
-def spray(amount_ml):
-
-    global pulse_count
-
-    print()
-    print("===================================")
-    print(
-        f"STARTING SPRAY: {amount_ml:.2f} ml"
-    )
-    print("===================================")
-
-    target_pulses = (
-        amount_ml * PULSES_PER_ML
-    )
-
-    print(
-        f"Target pulses: {target_pulses:.0f}"
-    )
-
-    pulse_count = 0
-
-    send_status(
-        "Spraying...",
-        0.0
-    )
-
-    print("Relay ON")
-    print("Pump ON")
-
-    relay.on()
-
-    try:
-
-        while pulse_count < target_pulses:
-
-            current_ml = (
-
-                pulse_count /
-                PULSES_PER_ML
-
-            )
-
-            print(
-
-                f"\rPulses: {pulse_count} | "
-                f"Volume: {current_ml:.2f} ml",
-
-                end="",
-                flush=True
-            )
-
-            time.sleep(0.01)
-
-    finally:
-
-        relay.off()
-
-        print()
-        print("Relay OFF")
-        print("Pump OFF")
-
-    actual_ml = (
-
-        pulse_count /
-        PULSES_PER_ML
-
-    )
-
-    print(
-        f"Actual volume: {actual_ml:.2f} ml"
-    )
-
-    send_status(
-        "Completed",
-        actual_ml
-    )
-
-    print(
-        "Spraying completed."
-    )
-
-
-# =====================================================
-# STARTUP
-# =====================================================
-
-print()
-print("===================================")
-print("       CropIQ Raspberry Pi")
-print("===================================")
-print("Relay: READY")
-print("Flow Sensor: READY")
-
-if camera.isOpened():
-
-    print("Camera: READY")
-
-else:
-
-    print("Camera: NOT FOUND")
-
-print("Backend: CONNECTING")
-print("===================================")
-
-
-# Make sure pump is OFF
-relay.off()
-
-send_status(
-    "Ready",
-    0.0
-)
-
-
-# =====================================================
-# MAIN LOOP
-# =====================================================
-
-try:
-
-    while True:
-
-        command_data = get_command()
-
-        if command_data is not None:
-
-            command = command_data.get(
-                "command"
-            )
-
-            # -----------------------------------------
-            # CAPTURE COMMAND
-            # -----------------------------------------
-
-            if command == "CAPTURE":
-
-                capture_image()
-
-
-            # -----------------------------------------
-            # SPRAY COMMAND
-            # -----------------------------------------
-
-            elif command == "SPRAY":
-
-                amount = float(
-                    command_data["amount_ml"]
-                )
-
-                spray(amount)
-
-
-        time.sleep(
-            CHECK_INTERVAL
-        )
-
-
-# =====================================================
-# STOP
-# =====================================================
-
-except KeyboardInterrupt:
-
-    print()
-    print("Stopping CropIQ...")
-
-
-# =====================================================
-# CLEANUP
-# =====================================================
-
-finally:
-
-    relay.off()
-
-    if camera.isOpened():
-
-        camera.release()
-
-    GPIO.cleanup()
-
-    print(
-        "System safely stopped"
+    return Response(
+        content=latest_image,
+        media_type=latest_image_type
     )
