@@ -26,7 +26,6 @@ latest_image_type = "image/jpeg"
 # =====================================================
 
 class SprayRequest(BaseModel):
-
     amount_ml: float
 
 
@@ -35,9 +34,7 @@ class SprayRequest(BaseModel):
 # =====================================================
 
 class StatusRequest(BaseModel):
-
     status: str
-
     amount_ml: float = 0.0
 
 
@@ -95,6 +92,7 @@ def spray(request: SprayRequest):
 
     amount = request.amount_ml
 
+    # Check amount
     if amount <= 0:
 
         raise HTTPException(
@@ -109,6 +107,7 @@ def spray(request: SprayRequest):
             detail="Maximum dosage is 500 ml"
         )
 
+    # Don't allow another command
     if spray_command is not None:
 
         raise HTTPException(
@@ -116,19 +115,27 @@ def spray(request: SprayRequest):
             detail="Another command is already pending"
         )
 
+    # Don't allow spraying again while spraying
+    if spray_status == "Spraying...":
+
+        raise HTTPException(
+            status_code=409,
+            detail="Spraying is already in progress"
+        )
+
+    # Create command
     spray_command = {
         "command": "SPRAY",
         "amount_ml": amount
     }
 
-    spray_status = "Spraying..."
-
+    # Reset previous amount
     sprayed_amount = 0.0
 
     return {
         "message": "Spray command created",
         "amount_ml": amount,
-        "status": spray_status
+        "status": "Ready"
     }
 
 
@@ -141,11 +148,20 @@ def capture():
 
     global spray_command
 
+    # Don't capture while another command exists
     if spray_command is not None:
 
         raise HTTPException(
             status_code=409,
             detail="Another command is already pending"
+        )
+
+    # Don't capture during spraying
+    if spray_status == "Spraying...":
+
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot capture while spraying"
         )
 
     spray_command = {
