@@ -10,13 +10,13 @@ from gpiozero import OutputDevice
 # CONFIGURATION
 # =====================================================
 
-BACKEND_URL = "YOUR_RENDER_URL"
+BACKEND_URL = "https://cropiq-backend-mecl.onrender.com"
 
 RELAY_PIN = 17
 FLOW_PIN = 18
 
 # Your measured calibration
-PULSES_PER_ML = 47.64
+PULSES_PER_ML = 180
 
 # How often the camera uploads an image
 IMAGE_INTERVAL = 10
