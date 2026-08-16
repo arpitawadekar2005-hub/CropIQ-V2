@@ -3,6 +3,10 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 
+# =====================================================
+# CROP IQ FASTAPI BACKEND
+# =====================================================
+
 app = FastAPI(title="CropIQ API")
 
 
@@ -18,20 +22,23 @@ sprayed_amount = 0.0
 
 
 # =====================================================
-# DOSAGE MODEL
+# LATEST CAMERA IMAGE
+# =====================================================
+
+latest_image = None
+
+latest_image_type = "image/jpeg"
+
+
+# =====================================================
+# DATA MODELS
 # =====================================================
 
 class SprayRequest(BaseModel):
-
     amount_ml: float
 
 
-# =====================================================
-# PI STATUS MODEL
-# =====================================================
-
 class StatusRequest(BaseModel):
-
     status: str
     amount_ml: float = 0.0
 
@@ -50,7 +57,7 @@ def home():
 
 
 # =====================================================
-# TEST
+# CONNECTION TEST
 # =====================================================
 
 @app.get("/test")
@@ -72,7 +79,8 @@ def get_state():
     return {
         "status": spray_status,
         "sprayed_amount": sprayed_amount,
-        "command_pending": spray_command is not None
+        "command_pending": spray_command is not None,
+        "image_available": latest_image is not None
     }
 
 
@@ -89,6 +97,7 @@ def spray(request: SprayRequest):
 
     amount = request.amount_ml
 
+    # Check dosage
     if amount <= 0:
 
         raise HTTPException(
@@ -103,6 +112,7 @@ def spray(request: SprayRequest):
             detail="Maximum dosage is 500 ml"
         )
 
+    # Check if another command is pending
     if spray_command is not None:
 
         raise HTTPException(
@@ -110,14 +120,13 @@ def spray(request: SprayRequest):
             detail="A spray command is already pending"
         )
 
+    # Store spray command
     spray_command = amount
 
+    # Update status
     spray_status = "Spraying..."
 
     sprayed_amount = 0.0
-
-    latest_image = None
-    latest_image_type = "image/jpeg"
 
     return {
         "message": "Spray command created",
@@ -127,7 +136,7 @@ def spray(request: SprayRequest):
 
 
 # =====================================================
-# RASPBERRY PI GET COMMAND
+# RASPBERRY PI GETS SPRAY COMMAND
 # =====================================================
 
 @app.get("/command")
@@ -143,7 +152,8 @@ def get_command():
 
     amount = spray_command
 
-    # Command is consumed by Raspberry Pi
+    # Give command to Raspberry Pi
+    # and remove it from the queue
     spray_command = None
 
     return {
@@ -153,7 +163,7 @@ def get_command():
 
 
 # =====================================================
-# RASPBERRY PI REPORTS STATUS
+# RASPBERRY PI REPORTS SPRAY STATUS
 # =====================================================
 
 @app.post("/status")
@@ -172,6 +182,7 @@ def update_status(request: StatusRequest):
         "amount_ml": sprayed_amount
     }
 
+
 # =====================================================
 # RASPBERRY PI UPLOADS PLANT IMAGE
 # =====================================================
@@ -182,6 +193,7 @@ async def upload_image(file: UploadFile = File(...)):
     global latest_image
     global latest_image_type
 
+    # Read image
     image_data = await file.read()
 
     if not image_data:
@@ -191,6 +203,7 @@ async def upload_image(file: UploadFile = File(...)):
             detail="Empty image"
         )
 
+    # Store latest image
     latest_image = image_data
 
     latest_image_type = (
@@ -213,7 +226,7 @@ def get_latest_image():
 
         raise HTTPException(
             status_code=404,
-            detail="No image available"
+            detail="No image available yet"
         )
 
     return Response(
