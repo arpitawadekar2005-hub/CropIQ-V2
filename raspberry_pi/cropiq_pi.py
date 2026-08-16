@@ -15,7 +15,9 @@ BACKEND_URL = "https://cropiq-backend-mecl.onrender.com"
 RELAY_PIN = 17
 FLOW_PIN = 18
 
-PULSES_PER_ML = 180
+# Your previous calibration:
+# 3806 pulses / 80 ml = 47.6375 pulses/ml
+PULSES_PER_ML = 47.64
 
 CHECK_INTERVAL = 2
 
@@ -37,6 +39,7 @@ GPIO.setup(
 # RELAY
 # =====================================================
 
+# Active LOW relay
 relay = OutputDevice(
     RELAY_PIN,
     active_high=False,
@@ -82,7 +85,7 @@ else:
 
 
 # =====================================================
-# SEND STATUS
+# SEND STATUS TO BACKEND
 # =====================================================
 
 def send_status(status, amount=0.0):
@@ -117,7 +120,7 @@ def send_status(status, amount=0.0):
 
 
 # =====================================================
-# GET COMMAND
+# GET COMMAND FROM BACKEND
 # =====================================================
 
 def get_command():
@@ -140,9 +143,7 @@ def get_command():
 
             return None
 
-        data = response.json()
-
-        return data
+        return response.json()
 
     except Exception as e:
 
@@ -151,7 +152,7 @@ def get_command():
             e
         )
 
-    return None
+        return None
 
 
 # =====================================================
@@ -173,7 +174,7 @@ def capture_image():
 
         return
 
-    # Capture image
+    # Capture frame
     ret, frame = camera.read()
 
     if not ret:
@@ -211,7 +212,7 @@ def capture_image():
         "Image captured successfully"
     )
 
-    # Upload image
+    # Upload to Render
     try:
 
         with open(
@@ -278,6 +279,7 @@ def spray(amount_ml):
     )
     print("===================================")
 
+    # Calculate target pulses
     target_pulses = (
         amount_ml * PULSES_PER_ML
     )
@@ -286,8 +288,10 @@ def spray(amount_ml):
         f"Target pulses: {target_pulses:.0f}"
     )
 
+    # Reset pulse count
     pulse_count = 0
 
+    # Tell backend spraying has started
     send_status(
         "Spraying...",
         0.0
@@ -296,6 +300,7 @@ def spray(amount_ml):
     print("Relay ON")
     print("Pump ON")
 
+    # Start pump
     relay.on()
 
     try:
@@ -303,10 +308,8 @@ def spray(amount_ml):
         while pulse_count < target_pulses:
 
             current_ml = (
-
                 pulse_count /
                 PULSES_PER_ML
-
             )
 
             print(
@@ -322,23 +325,27 @@ def spray(amount_ml):
 
     finally:
 
+        # VERY IMPORTANT:
+        # Pump is always turned OFF
+        # even if an error occurs.
+
         relay.off()
 
         print()
         print("Relay OFF")
         print("Pump OFF")
 
+    # Calculate actual volume
     actual_ml = (
-
         pulse_count /
         PULSES_PER_ML
-
     )
 
     print(
         f"Actual volume: {actual_ml:.2f} ml"
     )
 
+    # Tell backend spraying is complete
     send_status(
         "Completed",
         actual_ml
@@ -357,6 +364,7 @@ print()
 print("===================================")
 print("       CropIQ Raspberry Pi")
 print("===================================")
+
 print("Relay: READY")
 print("Flow Sensor: READY")
 
@@ -369,11 +377,20 @@ else:
     print("Camera: NOT FOUND")
 
 print("Backend: CONNECTING")
+
 print("===================================")
 
 
-# Make sure pump is OFF
+# =====================================================
+# SAFETY: PUMP OFF AT START
+# =====================================================
+
 relay.off()
+
+
+# =====================================================
+# TELL BACKEND SYSTEM IS READY
+# =====================================================
 
 send_status(
     "Ready",
@@ -397,27 +414,46 @@ try:
                 "command"
             )
 
-            # -----------------------------------------
-            # CAPTURE COMMAND
-            # -----------------------------------------
+            # =========================================
+            # CAPTURE
+            # =========================================
 
             if command == "CAPTURE":
 
                 capture_image()
 
 
-            # -----------------------------------------
-            # SPRAY COMMAND
-            # -----------------------------------------
+            # =========================================
+            # SPRAY
+            # =========================================
 
             elif command == "SPRAY":
 
-                amount = float(
-                    command_data["amount_ml"]
-                )
+                try:
 
-                spray(amount)
+                    amount = float(
+                        command_data["amount_ml"]
+                    )
 
+                    if amount <= 0:
+
+                        print(
+                            "Invalid spray amount"
+                        )
+
+                    else:
+
+                        spray(amount)
+
+                except (
+                    KeyError,
+                    ValueError,
+                    TypeError
+                ):
+
+                    print(
+                        "Invalid spray command"
+                    )
 
         time.sleep(
             CHECK_INTERVAL
@@ -440,12 +476,15 @@ except KeyboardInterrupt:
 
 finally:
 
+    # Safety: pump OFF
     relay.off()
 
+    # Release camera
     if camera.isOpened():
 
         camera.release()
 
+    # Cleanup GPIO
     GPIO.cleanup()
 
     print(
