@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 
@@ -115,6 +116,9 @@ def spray(request: SprayRequest):
 
     sprayed_amount = 0.0
 
+    latest_image = None
+latest_image_type = "image/jpeg"
+
     return {
         "message": "Spray command created",
         "amount_ml": amount,
@@ -167,3 +171,52 @@ def update_status(request: StatusRequest):
         "status": spray_status,
         "amount_ml": sprayed_amount
     }
+
+# =====================================================
+# RASPBERRY PI UPLOADS PLANT IMAGE
+# =====================================================
+
+@app.post("/upload-image")
+async def upload_image(file: UploadFile = File(...)):
+
+    global latest_image
+    global latest_image_type
+
+    image_data = await file.read()
+
+    if not image_data:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Empty image"
+        )
+
+    latest_image = image_data
+
+    latest_image_type = (
+        file.content_type or "image/jpeg"
+    )
+
+    return {
+        "message": "Image uploaded successfully"
+    }
+
+
+# =====================================================
+# STREAMLIT GETS LATEST IMAGE
+# =====================================================
+
+@app.get("/latest-image")
+def get_latest_image():
+
+    if latest_image is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="No image available"
+        )
+
+    return Response(
+        content=latest_image,
+        media_type=latest_image_type
+    )
