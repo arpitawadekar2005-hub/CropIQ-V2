@@ -1,11 +1,17 @@
 import streamlit as st
 import requests
+import textwrap
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
 
 BACKEND_URL = "https://cropiq-backend-mecl.onrender.com"
+
+
+# ============================================================
+# PAGE CONFIG
+# ============================================================
 
 st.set_page_config(
     page_title="CropIQ | Precision Agriculture",
@@ -14,6 +20,22 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+
+# ============================================================
+# CUSTOM HTML HELPER
+# ============================================================
+
+def html(content):
+    """
+    Render HTML without Streamlit interpreting the indentation
+    as a Markdown code block.
+    """
+    st.markdown(
+        textwrap.dedent(content),
+        unsafe_allow_html=True
+    )
+
+
 # ============================================================
 # CUSTOM CSS
 # ============================================================
@@ -21,18 +43,23 @@ st.set_page_config(
 st.markdown("""
 <style>
 
-/* ---------- GLOBAL ---------- */
+/* ============================================================
+   GLOBAL
+============================================================ */
 
 .stApp {
-    background: #F5F8F5;
+    background: #F4F7F3;
 }
 
 .block-container {
     max-width: 1450px;
-    padding: 2rem 3rem 3rem 3rem;
+    padding-top: 2rem;
+    padding-left: 3rem;
+    padding-right: 3rem;
+    padding-bottom: 3rem;
 }
 
-/* Hide Streamlit branding */
+/* Hide Streamlit default branding */
 #MainMenu {
     visibility: hidden;
 }
@@ -41,18 +68,23 @@ footer {
     visibility: hidden;
 }
 
-/* ---------- HEADER ---------- */
+
+/* ============================================================
+   HEADER
+============================================================ */
 
 .cropiq-header {
+    background: #FFFFFF;
+    border: 1px solid #E1E9E2;
+    border-radius: 20px;
+    padding: 22px 28px;
+    margin-bottom: 28px;
+
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #FFFFFF;
-    padding: 22px 28px;
-    border-radius: 18px;
-    border: 1px solid #E2EAE3;
-    margin-bottom: 25px;
-    box-shadow: 0 4px 18px rgba(31, 55, 40, 0.06);
+
+    box-shadow: 0 4px 18px rgba(22, 55, 38, 0.06);
 }
 
 .logo-area {
@@ -62,7 +94,8 @@ footer {
 }
 
 .logo-icon {
-    font-size: 42px;
+    font-size: 43px;
+    line-height: 1;
 }
 
 .logo-text {
@@ -73,45 +106,78 @@ footer {
 }
 
 .logo-subtitle {
-    color: #718076;
+    color: #718078;
     font-size: 13px;
-    margin-top: 5px;
+    margin-top: 6px;
 }
 
 .online-status {
     background: #ECFDF3;
-    color: #15803D;
     border: 1px solid #BBF7D0;
+    color: #15803D;
+
     padding: 10px 17px;
-    border-radius: 25px;
-    font-size: 14px;
-    font-weight: 600;
+    border-radius: 30px;
+
+    font-size: 13px;
+    font-weight: 700;
 }
 
-/* ---------- PAGE TITLE ---------- */
+
+/* ============================================================
+   PAGE TITLE
+============================================================ */
 
 .page-title {
-    font-size: 25px;
-    font-weight: 750;
     color: #173B29;
-    margin: 5px 0 4px 0;
+    font-size: 27px;
+    font-weight: 800;
+    margin-bottom: 4px;
 }
 
 .page-description {
-    color: #718076;
+    color: #718078;
     font-size: 14px;
     margin-bottom: 22px;
 }
 
-/* ---------- METRIC CARDS ---------- */
+
+/* ============================================================
+   SECTION TITLES
+============================================================ */
+
+.section-heading {
+    color: #173B29;
+    font-size: 20px;
+    font-weight: 750;
+
+    margin-top: 28px;
+    margin-bottom: 13px;
+}
+
+
+/* ============================================================
+   METRIC CARDS
+============================================================ */
 
 .metric-card {
     background: #FFFFFF;
-    border: 1px solid #E2EAE3;
-    border-radius: 16px;
+
+    border: 1px solid #E1E9E2;
+    border-radius: 17px;
+
     padding: 20px;
+
     min-height: 125px;
-    box-shadow: 0 4px 15px rgba(31, 55, 40, 0.05);
+
+    box-shadow: 0 4px 16px rgba(22, 55, 38, 0.05);
+
+    transition: all 0.2s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 22px rgba(22, 55, 38, 0.08);
 }
 
 .metric-top {
@@ -121,102 +187,123 @@ footer {
 }
 
 .metric-label {
-    font-size: 13px;
-    color: #718076;
-    font-weight: 600;
+    color: #718078;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
 }
 
 .metric-icon {
-    font-size: 24px;
+    font-size: 23px;
 }
 
 .metric-value {
-    font-size: 25px;
-    font-weight: 750;
     color: #173B29;
+    font-size: 25px;
+    font-weight: 800;
+
     margin-top: 13px;
 }
 
 .metric-description {
+    color: #8A958E;
     font-size: 12px;
-    color: #8A978E;
-    margin-top: 3px;
+    margin-top: 4px;
 }
 
-/* ---------- SECTION TITLES ---------- */
 
-.section-heading {
-    color: #173B29;
-    font-size: 20px;
-    font-weight: 750;
-    margin: 28px 0 12px 0;
-}
-
-/* ---------- IMAGE PANEL ---------- */
+/* ============================================================
+   IMAGE PANEL
+============================================================ */
 
 .image-panel {
     background: #FFFFFF;
-    border: 1px solid #E2EAE3;
+
+    border: 1px solid #E1E9E2;
     border-radius: 18px;
+
     padding: 18px;
-    box-shadow: 0 4px 18px rgba(31, 55, 40, 0.05);
+
+    box-shadow: 0 4px 18px rgba(22, 55, 38, 0.05);
 }
 
 .panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+
     margin-bottom: 15px;
 }
 
 .panel-title {
     color: #173B29;
     font-size: 17px;
-    font-weight: 700;
+    font-weight: 750;
 }
 
 .live-badge {
-    background: #F0FDF4;
-    color: #16A34A;
-    border-radius: 20px;
+    background: #ECFDF3;
+    color: #15803D;
+
+    border: 1px solid #BBF7D0;
+
     padding: 5px 10px;
-    font-size: 11px;
-    font-weight: 700;
+    border-radius: 20px;
+
+    font-size: 10px;
+    font-weight: 800;
 }
 
-/* ---------- CONTROL PANEL ---------- */
+
+/* ============================================================
+   CONTROL PANEL
+============================================================ */
 
 .control-panel {
     background: #FFFFFF;
-    border: 1px solid #E2EAE3;
+
+    border: 1px solid #E1E9E2;
     border-radius: 18px;
+
     padding: 25px;
-    box-shadow: 0 4px 18px rgba(31, 55, 40, 0.05);
+
     min-height: 100%;
+
+    box-shadow: 0 4px 18px rgba(22, 55, 38, 0.05);
 }
 
 .control-title {
     color: #173B29;
     font-size: 19px;
-    font-weight: 750;
-    margin-bottom: 5px;
+    font-weight: 800;
+    margin-bottom: 7px;
 }
 
 .control-description {
-    color: #718076;
+    color: #718078;
     font-size: 13px;
-    line-height: 1.5;
+    line-height: 1.55;
+
     margin-bottom: 20px;
 }
 
-/* ---------- BUTTONS ---------- */
+
+/* ============================================================
+   STREAMLIT BUTTONS
+============================================================ */
 
 .stButton > button {
     width: 100%;
+
+    height: 48px;
+
     border-radius: 11px !important;
-    height: 48px !important;
+
     font-weight: 700 !important;
     font-size: 14px !important;
+
+    border: none !important;
+
     transition: all 0.2s ease !important;
 }
 
@@ -224,80 +311,134 @@ footer {
     transform: translateY(-1px);
 }
 
-/* ---------- INPUT ---------- */
+
+/* ============================================================
+   NUMBER INPUT
+============================================================ */
 
 [data-testid="stNumberInput"] {
     margin-bottom: 15px;
 }
 
 [data-testid="stNumberInput"] input {
-    font-weight: 600;
+    font-weight: 650;
 }
 
-/* ---------- STATUS ---------- */
+
+/* ============================================================
+   STATUS PANEL
+============================================================ */
 
 .status-panel {
     background: #FFFFFF;
-    border: 1px solid #E2EAE3;
+
+    border: 1px solid #E1E9E2;
     border-radius: 18px;
+
     padding: 22px 25px;
-    box-shadow: 0 4px 18px rgba(31, 55, 40, 0.05);
+
+    box-shadow: 0 4px 18px rgba(22, 55, 38, 0.05);
+}
+
+.status-panel p {
+    color: #66736B;
+    font-size: 14px;
+    margin-top: 14px;
+    margin-bottom: 0;
 }
 
 .status-ready {
     background: #ECFDF3;
     border: 1px solid #BBF7D0;
+
     color: #15803D;
+
     padding: 13px 16px;
+
     border-radius: 11px;
-    font-weight: 700;
+
+    font-weight: 750;
 }
 
 .status-spraying {
     background: #FFF7ED;
     border: 1px solid #FED7AA;
+
     color: #C2410C;
+
     padding: 13px 16px;
+
     border-radius: 11px;
-    font-weight: 700;
+
+    font-weight: 750;
 }
 
 .status-completed {
     background: #EFF6FF;
     border: 1px solid #BFDBFE;
+
     color: #2563EB;
+
     padding: 13px 16px;
+
     border-radius: 11px;
-    font-weight: 700;
+
+    font-weight: 750;
 }
 
 .status-offline {
     background: #FEF2F2;
     border: 1px solid #FECACA;
+
     color: #DC2626;
+
     padding: 13px 16px;
+
     border-radius: 11px;
-    font-weight: 700;
+
+    font-weight: 750;
 }
 
-/* ---------- DIVIDER ---------- */
 
-hr {
-    border: none;
-    border-top: 1px solid #E2EAE3;
-    margin: 30px 0;
+/* ============================================================
+   INFO BOX
+============================================================ */
+
+.info-box {
+    background: #F0F7F1;
+
+    border: 1px solid #D5E5D7;
+
+    border-radius: 12px;
+
+    padding: 13px 15px;
+
+    color: #496052;
+
+    font-size: 12px;
+
+    margin-top: 15px;
 }
 
-/* ---------- FOOTER ---------- */
+
+/* ============================================================
+   FOOTER
+============================================================ */
 
 .footer {
     text-align: center;
+
     color: #89958C;
+
     font-size: 12px;
-    padding-top: 20px;
+
+    padding-top: 25px;
 }
 
-/* ---------- MOBILE ---------- */
+
+/* ============================================================
+   MOBILE
+============================================================ */
 
 @media (max-width: 800px) {
 
@@ -318,8 +459,12 @@ hr {
     }
 
     .online-status {
-        font-size: 11px;
-        padding: 8px 11px;
+        font-size: 10px;
+        padding: 8px 10px;
+    }
+
+    .page-title {
+        font-size: 23px;
     }
 
 }
@@ -335,15 +480,18 @@ hr {
 def get_state():
 
     try:
+
         response = requests.get(
             BACKEND_URL + "/state",
             timeout=10
         )
 
         if response.status_code == 200:
+
             return response.json()
 
     except Exception:
+
         pass
 
     return None
@@ -359,16 +507,26 @@ def capture_image():
         )
 
         if response.status_code == 200:
-            st.success("📷 Capture command sent to Raspberry Pi.")
+
+            st.success(
+                "📷 Capture command sent to Raspberry Pi."
+            )
 
         elif response.status_code == 409:
-            st.warning("Another command is already pending.")
+
+            st.warning(
+                "Another command is already pending."
+            )
 
         else:
+
             st.error(response.text)
 
     except Exception as e:
-        st.error(f"Backend connection failed: {e}")
+
+        st.error(
+            f"Backend connection failed: {e}"
+        )
 
 
 def spray(amount):
@@ -377,7 +535,9 @@ def spray(amount):
 
         response = requests.post(
             BACKEND_URL + "/spray",
-            json={"amount_ml": amount},
+            json={
+                "amount_ml": amount
+            },
             timeout=15
         )
 
@@ -411,14 +571,17 @@ def spray(amount):
 # HEADER
 # ============================================================
 
-st.markdown("""
+html("""
 <div class="cropiq-header">
 
     <div class="logo-area">
 
-        <div class="logo-icon">🌱</div>
+        <div class="logo-icon">
+            🌱
+        </div>
 
         <div>
+
             <div class="logo-text">
                 CropIQ
             </div>
@@ -426,6 +589,7 @@ st.markdown("""
             <div class="logo-subtitle">
                 Precision Agriculture Intelligence Platform
             </div>
+
         </div>
 
     </div>
@@ -435,33 +599,31 @@ st.markdown("""
     </div>
 
 </div>
-""", unsafe_allow_html=True)
+""")
 
 
 # ============================================================
-# TITLE
+# PAGE TITLE
 # ============================================================
 
-st.markdown(
-    '<div class="page-title">Precision Spraying Control</div>',
-    unsafe_allow_html=True
-)
+html("""
+<div class="page-title">
+    Precision Spraying Control
+</div>
 
-st.markdown(
-    '<div class="page-description">'
-    'Monitor the plant, control the sprayer, and perform targeted spraying.'
-    '</div>',
-    unsafe_allow_html=True
-)
+<div class="page-description">
+    Monitor the plant, control the sprayer, and perform targeted spraying.
+</div>
+""")
 
 
 # ============================================================
-# CURRENT STATE
+# GET CURRENT STATE
 # ============================================================
 
 state = get_state()
 
-if state:
+if state is not None:
 
     current_status = state.get(
         "status",
@@ -478,34 +640,54 @@ if state:
 else:
 
     current_status = "Offline"
+
     sprayed_amount = 0.0
+
     pi_online = False
 
 
 # ============================================================
-# OVERVIEW CARDS
+# SYSTEM OVERVIEW
 # ============================================================
 
-st.markdown(
-    '<div class="section-heading">System Overview</div>',
-    unsafe_allow_html=True
-)
+html("""
+<div class="section-heading">
+    System Overview
+</div>
+""")
+
 
 col1, col2, col3, col4 = st.columns(4)
 
 
+# ============================================================
+# CARD 1
+# ============================================================
+
 with col1:
 
-    status_display = (
-        "READY"
-        if current_status == "Ready"
-        else current_status.upper()
-    )
+    if current_status == "Ready":
 
-    st.markdown(f"""
+        display_status = "READY"
+
+    elif current_status == "Spraying...":
+
+        display_status = "SPRAYING"
+
+    elif current_status == "Completed":
+
+        display_status = "COMPLETED"
+
+    else:
+
+        display_status = "OFFLINE"
+
+
+    html(f"""
     <div class="metric-card">
 
         <div class="metric-top">
+
             <div class="metric-label">
                 SPRAYER STATUS
             </div>
@@ -513,10 +695,11 @@ with col1:
             <div class="metric-icon">
                 🚿
             </div>
+
         </div>
 
         <div class="metric-value">
-            {status_display}
+            {display_status}
         </div>
 
         <div class="metric-description">
@@ -524,15 +707,20 @@ with col1:
         </div>
 
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
+
+# ============================================================
+# CARD 2
+# ============================================================
 
 with col2:
 
-    st.markdown(f"""
+    html(f"""
     <div class="metric-card">
 
         <div class="metric-top">
+
             <div class="metric-label">
                 LAST DISPENSED
             </div>
@@ -540,6 +728,7 @@ with col2:
             <div class="metric-icon">
                 💧
             </div>
+
         </div>
 
         <div class="metric-value">
@@ -551,17 +740,22 @@ with col2:
         </div>
 
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
+
+# ============================================================
+# CARD 3
+# ============================================================
 
 with col3:
 
     camera_status = "READY" if pi_online else "OFFLINE"
 
-    st.markdown(f"""
+    html(f"""
     <div class="metric-card">
 
         <div class="metric-top">
+
             <div class="metric-label">
                 CAMERA
             </div>
@@ -569,6 +763,7 @@ with col3:
             <div class="metric-icon">
                 📷
             </div>
+
         </div>
 
         <div class="metric-value">
@@ -580,17 +775,22 @@ with col3:
         </div>
 
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
+
+# ============================================================
+# CARD 4
+# ============================================================
 
 with col4:
 
     device_status = "ONLINE" if pi_online else "OFFLINE"
 
-    st.markdown(f"""
+    html(f"""
     <div class="metric-card">
 
         <div class="metric-top">
+
             <div class="metric-label">
                 RASPBERRY PI
             </div>
@@ -598,6 +798,7 @@ with col4:
             <div class="metric-icon">
                 📡
             </div>
+
         </div>
 
         <div class="metric-value">
@@ -609,17 +810,19 @@ with col4:
         </div>
 
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 
 # ============================================================
-# MAIN CONTROL AREA
+# MAIN AREA
 # ============================================================
 
-st.markdown(
-    '<div class="section-heading">Plant Monitoring & Control</div>',
-    unsafe_allow_html=True
-)
+html("""
+<div class="section-heading">
+    Plant Monitoring & Control
+</div>
+""")
+
 
 image_col, control_col = st.columns(
     [2.1, 1],
@@ -633,7 +836,7 @@ image_col, control_col = st.columns(
 
 with image_col:
 
-    st.markdown("""
+    html("""
     <div class="image-panel">
 
         <div class="panel-header">
@@ -649,7 +852,7 @@ with image_col:
         </div>
 
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 
     @st.fragment(run_every="2s")
@@ -698,7 +901,7 @@ with image_col:
 
 with control_col:
 
-    st.markdown("""
+    html("""
     <div class="control-panel">
 
         <div class="control-title">
@@ -711,7 +914,7 @@ with control_col:
         </div>
 
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 
     dosage = st.number_input(
@@ -740,19 +943,23 @@ with control_col:
         spray(dosage)
 
 
-    st.caption(
-        "Maximum dosage: 500 ml"
-    )
+    html("""
+    <div class="info-box">
+        💡 Set the spray quantity according to the
+        required treatment amount.
+    </div>
+    """)
 
 
 # ============================================================
-# LIVE STATUS
+# LIVE SPRAY STATUS
 # ============================================================
 
-st.markdown(
-    '<div class="section-heading">Live Spray Status</div>',
-    unsafe_allow_html=True
-)
+html("""
+<div class="section-heading">
+    Live Spray Status
+</div>
+""")
 
 
 @st.fragment(run_every="2s")
@@ -760,20 +967,33 @@ def show_status():
 
     state = get_state()
 
+    # --------------------------------------------------------
+    # BACKEND OFFLINE
+    # --------------------------------------------------------
+
     if state is None:
 
-        st.markdown("""
+        html("""
         <div class="status-panel">
 
             <div class="status-offline">
-                🔴 Backend unavailable
+                🔴 BACKEND UNAVAILABLE
             </div>
 
+            <p>
+                Unable to communicate with the CropIQ
+                control system.
+            </p>
+
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         return
 
+
+    # --------------------------------------------------------
+    # STATE
+    # --------------------------------------------------------
 
     status = state.get(
         "status",
@@ -786,9 +1006,13 @@ def show_status():
     )
 
 
+    # --------------------------------------------------------
+    # READY
+    # --------------------------------------------------------
+
     if status == "Ready":
 
-        st.markdown("""
+        html("""
         <div class="status-panel">
 
             <div class="status-ready">
@@ -801,12 +1025,16 @@ def show_status():
             </p>
 
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
+
+    # --------------------------------------------------------
+    # SPRAYING
+    # --------------------------------------------------------
 
     elif status == "Spraying...":
 
-        st.markdown(f"""
+        html(f"""
         <div class="status-panel">
 
             <div class="status-spraying">
@@ -819,12 +1047,16 @@ def show_status():
             </p>
 
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
+
+    # --------------------------------------------------------
+    # COMPLETED
+    # --------------------------------------------------------
 
     elif status == "Completed":
 
-        st.markdown(f"""
+        html(f"""
         <div class="status-panel">
 
             <div class="status-completed">
@@ -837,8 +1069,12 @@ def show_status():
             </p>
 
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
+
+    # --------------------------------------------------------
+    # OTHER
+    # --------------------------------------------------------
 
     else:
 
@@ -852,12 +1088,12 @@ show_status()
 # FOOTER
 # ============================================================
 
-st.markdown("""
-<div class="footer">
+html("""
+<hr>
 
+<div class="footer">
     🌱 CropIQ &nbsp;•&nbsp;
     Precision Agriculture &nbsp;•&nbsp;
     AI-powered targeted spraying
-
 </div>
-""", unsafe_allow_html=True)
+""")
