@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 
+
 # ============================================================
 # CONFIGURATION
 # ============================================================
@@ -26,250 +27,232 @@ st.set_page_config(
 
 st.markdown(
     """
-<style>
+    <style>
 
-/* =========================================================
-   MAIN APP
-========================================================= */
+    /* ========================================================
+       GLOBAL
+    ======================================================== */
 
-.stApp {
-    background-color: #f4f7f3;
-}
-
-.block-container {
-    max-width: 1450px;
-    padding: 2rem 3rem 3rem 3rem;
-}
-
-
-/* =========================================================
-   HIDE STREAMLIT DEFAULT UI
-========================================================= */
-
-#MainMenu {
-    visibility: hidden;
-}
-
-footer {
-    visibility: hidden;
-}
-
-
-/* =========================================================
-   HEADER
-========================================================= */
-
-.header-box {
-    background-color: white;
-    border: 1px solid #dfe8e1;
-    border-radius: 20px;
-    padding: 22px 28px;
-    margin-bottom: 28px;
-    box-shadow: 0 4px 18px rgba(30, 60, 40, 0.06);
-}
-
-.header-title {
-    font-size: 34px;
-    font-weight: 800;
-    color: #173b29;
-    margin: 0;
-}
-
-.header-subtitle {
-    color: #718078;
-    font-size: 14px;
-    margin-top: 5px;
-}
-
-
-/* =========================================================
-   SECTION HEADINGS
-========================================================= */
-
-.section-title {
-    font-size: 21px;
-    font-weight: 800;
-    color: #173b29;
-    margin-top: 25px;
-    margin-bottom: 12px;
-}
-
-.small-description {
-    color: #718078;
-    font-size: 14px;
-    margin-bottom: 18px;
-}
-
-
-/* =========================================================
-   METRIC CONTAINERS
-========================================================= */
-
-[data-testid="stVerticalBlockBorderWrapper"] {
-    background-color: white;
-    border: 1px solid #dfe8e1;
-    border-radius: 16px;
-    box-shadow: 0 4px 15px rgba(30, 60, 40, 0.05);
-}
-
-
-/* =========================================================
-   METRIC
-========================================================= */
-
-[data-testid="stMetric"] {
-    padding: 5px;
-}
-
-[data-testid="stMetricLabel"] {
-    color: #718078 !important;
-    font-size: 12px !important;
-    font-weight: 700 !important;
-}
-
-[data-testid="stMetricValue"] {
-    color: #173b29 !important;
-    font-size: 25px !important;
-    font-weight: 800 !important;
-}
-
-
-/* =========================================================
-   IMAGE CONTAINER
-========================================================= */
-
-.image-box {
-    background-color: white;
-    border: 1px solid #dfe8e1;
-    border-radius: 18px;
-    padding: 18px;
-    box-shadow: 0 4px 18px rgba(30, 60, 40, 0.05);
-}
-
-
-/* =========================================================
-   CONTROL CONTAINER
-========================================================= */
-
-.control-box {
-    background-color: white;
-    border: 1px solid #dfe8e1;
-    border-radius: 18px;
-    padding: 22px;
-    box-shadow: 0 4px 18px rgba(30, 60, 40, 0.05);
-}
-
-
-/* =========================================================
-   BUTTONS
-========================================================= */
-
-.stButton > button {
-    width: 100%;
-    min-height: 48px;
-    border-radius: 10px;
-    font-weight: 700;
-    font-size: 14px;
-}
-
-
-/* =========================================================
-   PRIMARY BUTTON
-========================================================= */
-
-.stButton > button[kind="primary"] {
-    background-color: #1f7a4d;
-    border: 1px solid #1f7a4d;
-    color: white;
-}
-
-.stButton > button[kind="primary"]:hover {
-    background-color: #17623d;
-    border-color: #17623d;
-    color: white;
-}
-
-
-/* =========================================================
-   NUMBER INPUT
-========================================================= */
-
-[data-testid="stNumberInput"] {
-    margin-bottom: 10px;
-}
-
-
-/* =========================================================
-   STATUS BOXES
-========================================================= */
-
-.ready-box {
-    background-color: #ecfdf3;
-    border: 1px solid #bbf7d0;
-    border-radius: 12px;
-    padding: 16px;
-    color: #15803d;
-    font-weight: 700;
-}
-
-.spraying-box {
-    background-color: #fff7ed;
-    border: 1px solid #fed7aa;
-    border-radius: 12px;
-    padding: 16px;
-    color: #c2410c;
-    font-weight: 700;
-}
-
-.completed-box {
-    background-color: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 12px;
-    padding: 16px;
-    color: #2563eb;
-    font-weight: 700;
-}
-
-.offline-box {
-    background-color: #fef2f2;
-    border: 1px solid #fecaca;
-    border-radius: 12px;
-    padding: 16px;
-    color: #dc2626;
-    font-weight: 700;
-}
-
-
-/* =========================================================
-   FOOTER
-========================================================= */
-
-.footer-text {
-    text-align: center;
-    color: #89958c;
-    font-size: 12px;
-    padding-top: 20px;
-}
-
-
-/* =========================================================
-   MOBILE
-========================================================= */
-
-@media (max-width: 800px) {
+    .stApp {
+        background-color: #F4F7F3;
+    }
 
     .block-container {
-        padding: 1rem;
+        max-width: 1450px;
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+        padding-left: 3rem;
+        padding-right: 3rem;
     }
 
-    .header-title {
-        font-size: 28px;
+    /* Hide Streamlit branding */
+    #MainMenu {
+        visibility: hidden;
     }
 
-}
+    footer {
+        visibility: hidden;
+    }
 
-</style>
-""",
+
+    /* ========================================================
+       TITLE
+    ======================================================== */
+
+    .cropiq-title {
+        color: #173B29;
+        font-size: 42px;
+        font-weight: 800;
+        letter-spacing: -1px;
+        margin-bottom: 0;
+    }
+
+    .cropiq-subtitle {
+        color: #6F7D74;
+        font-size: 15px;
+        margin-top: -5px;
+        margin-bottom: 25px;
+    }
+
+
+    /* ========================================================
+       SECTION HEADINGS
+    ======================================================== */
+
+    .section-title {
+        color: #173B29;
+        font-size: 21px;
+        font-weight: 750;
+        margin-top: 28px;
+        margin-bottom: 12px;
+    }
+
+
+    /* ========================================================
+       STREAMLIT CONTAINERS
+    ======================================================== */
+
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #FFFFFF;
+        border: 1px solid #DFE8E1;
+        border-radius: 16px;
+        box-shadow: 0 4px 16px rgba(23, 59, 41, 0.05);
+    }
+
+
+    /* ========================================================
+       METRICS
+    ======================================================== */
+
+    [data-testid="stMetric"] {
+        padding: 10px;
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #718078 !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #173B29 !important;
+        font-size: 26px !important;
+        font-weight: 800 !important;
+    }
+
+
+    /* ========================================================
+       BUTTONS
+    ======================================================== */
+
+    .stButton > button {
+        width: 100%;
+        min-height: 48px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 14px;
+    }
+
+    .stButton > button:hover {
+        transform: translateY(-1px);
+    }
+
+
+    /* ========================================================
+       PRIMARY BUTTON
+    ======================================================== */
+
+    .stButton > button[kind="primary"] {
+        background-color: #1F7A4D;
+        border-color: #1F7A4D;
+        color: white;
+    }
+
+    .stButton > button[kind="primary"]:hover {
+        background-color: #17623D;
+        border-color: #17623D;
+        color: white;
+    }
+
+
+    /* ========================================================
+       STATUS
+    ======================================================== */
+
+    .status-ready {
+        background-color: #ECFDF3;
+        border: 1px solid #BBF7D0;
+        color: #15803D;
+        border-radius: 10px;
+        padding: 14px 16px;
+        font-weight: 700;
+        font-size: 15px;
+    }
+
+    .status-spraying {
+        background-color: #FFF7ED;
+        border: 1px solid #FED7AA;
+        color: #C2410C;
+        border-radius: 10px;
+        padding: 14px 16px;
+        font-weight: 700;
+        font-size: 15px;
+    }
+
+    .status-completed {
+        background-color: #EFF6FF;
+        border: 1px solid #BFDBFE;
+        color: #2563EB;
+        border-radius: 10px;
+        padding: 14px 16px;
+        font-weight: 700;
+        font-size: 15px;
+    }
+
+    .status-offline {
+        background-color: #FEF2F2;
+        border: 1px solid #FECACA;
+        color: #DC2626;
+        border-radius: 10px;
+        padding: 14px 16px;
+        font-weight: 700;
+        font-size: 15px;
+    }
+
+
+    /* ========================================================
+       INFO
+    ======================================================== */
+
+    .info-text {
+        color: #6F7D74;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+
+    /* ========================================================
+       WORKFLOW CARDS
+    ======================================================== */
+
+    .workflow-number {
+        color: #1F7A4D;
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+
+    /* ========================================================
+       FOOTER
+    ======================================================== */
+
+    .footer {
+        text-align: center;
+        color: #89958C;
+        font-size: 12px;
+        margin-top: 20px;
+    }
+
+
+    /* ========================================================
+       MOBILE
+    ======================================================== */
+
+    @media (max-width: 800px) {
+
+        .block-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .cropiq-title {
+            font-size: 32px;
+        }
+
+    }
+
+    </style>
+    """,
     unsafe_allow_html=True
 )
 
@@ -345,7 +328,7 @@ def spray(amount):
             data = response.json()
 
             st.success(
-                f"🚿 Spray command sent — "
+                f"🚿 Spray command sent: "
                 f"{data['amount_ml']:.0f} ml"
             )
 
@@ -367,73 +350,14 @@ def spray(amount):
 
 
 # ============================================================
-# HEADER
-# ============================================================
-
-header_left, header_right = st.columns(
-    [4, 1]
-)
-
-with header_left:
-
-    st.markdown(
-        """
-        <div class="header-box">
-
-            <div class="header-title">
-                🌱 CropIQ
-            </div>
-
-            <div class="header-subtitle">
-                Precision Agriculture Intelligence Platform
-            </div>
-
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-with header_right:
-
-    st.write("")
-
-    state_header = get_state()
-
-    if state_header is not None:
-
-        st.success("● SYSTEM ONLINE")
-
-    else:
-
-        st.error("● SYSTEM OFFLINE")
-
-
-# ============================================================
-# TITLE
-# ============================================================
-
-st.markdown(
-    '<div class="section-title">'
-    'Precision Spraying Control'
-    '</div>',
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<div class="small-description">'
-    'Monitor the plant, control the sprayer, and perform targeted spraying.'
-    '</div>',
-    unsafe_allow_html=True
-)
-
-
-# ============================================================
-# CURRENT STATE
+# GET INITIAL STATE
 # ============================================================
 
 state = get_state()
 
 if state is not None:
+
+    pi_online = True
 
     current_status = state.get(
         "status",
@@ -445,15 +369,73 @@ if state is not None:
         0.0
     )
 
-    pi_online = True
-
 else:
+
+    pi_online = False
 
     current_status = "Offline"
 
     sprayed_amount = 0.0
 
-    pi_online = False
+
+# ============================================================
+# HEADER
+# ============================================================
+
+header_left, header_right = st.columns(
+    [4, 1],
+    vertical_alignment="center"
+)
+
+
+with header_left:
+
+    st.markdown(
+        """
+        <div class="cropiq-title">
+            🌱 CropIQ
+        </div>
+
+        <div class="cropiq-subtitle">
+            Precision Agriculture Intelligence Platform
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+with header_right:
+
+    if pi_online:
+
+        st.success(
+            "● SYSTEM ONLINE"
+        )
+
+    else:
+
+        st.error(
+            "● SYSTEM OFFLINE"
+        )
+
+
+# ============================================================
+# PAGE INTRODUCTION
+# ============================================================
+
+st.markdown(
+    """
+    <div class="section-title">
+        Precision Spraying Control
+    </div>
+
+    <div class="info-text">
+        Monitor the plant, capture images, configure spray dosage,
+        and control the precision spraying system.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 
 # ============================================================
@@ -461,11 +443,10 @@ else:
 # ============================================================
 
 st.markdown(
-    '<div class="section-title">'
-    'System Overview'
-    '</div>',
+    '<div class="section-title">System Overview</div>',
     unsafe_allow_html=True
 )
+
 
 metric1, metric2, metric3, metric4 = st.columns(
     4,
@@ -474,7 +455,7 @@ metric1, metric2, metric3, metric4 = st.columns(
 
 
 # ------------------------------------------------------------
-# METRIC 1
+# SPRAYER STATUS
 # ------------------------------------------------------------
 
 with metric1:
@@ -483,23 +464,23 @@ with metric1:
 
         if current_status == "Ready":
 
-            status_text = "READY"
+            display_status = "READY"
 
         elif current_status == "Spraying...":
 
-            status_text = "SPRAYING"
+            display_status = "SPRAYING"
 
         elif current_status == "Completed":
 
-            status_text = "COMPLETED"
+            display_status = "COMPLETED"
 
         else:
 
-            status_text = "OFFLINE"
+            display_status = "OFFLINE"
 
         st.metric(
             label="🚿 SPRAYER STATUS",
-            value=status_text
+            value=display_status
         )
 
         st.caption(
@@ -508,7 +489,7 @@ with metric1:
 
 
 # ------------------------------------------------------------
-# METRIC 2
+# LAST DISPENSED
 # ------------------------------------------------------------
 
 with metric2:
@@ -526,7 +507,7 @@ with metric2:
 
 
 # ------------------------------------------------------------
-# METRIC 3
+# CAMERA
 # ------------------------------------------------------------
 
 with metric3:
@@ -550,7 +531,7 @@ with metric3:
 
 
 # ------------------------------------------------------------
-# METRIC 4
+# RASPBERRY PI
 # ------------------------------------------------------------
 
 with metric4:
@@ -574,15 +555,14 @@ with metric4:
 
 
 # ============================================================
-# MAIN CONTROL SECTION
+# PLANT MONITORING & CONTROL
 # ============================================================
 
 st.markdown(
-    '<div class="section-title">'
-    'Plant Monitoring & Control'
-    '</div>',
+    '<div class="section-title">Plant Monitoring & Control</div>',
     unsafe_allow_html=True
 )
+
 
 image_column, control_column = st.columns(
     [2.1, 1],
@@ -598,21 +578,23 @@ with image_column:
 
     with st.container(border=True):
 
-        title_col, live_col = st.columns(
-            [4, 1]
+        image_title, image_live = st.columns(
+            [4, 1],
+            vertical_alignment="center"
         )
 
-        with title_col:
+        with image_title:
 
             st.subheader(
                 "🌿 Latest Plant Image"
             )
 
-        with live_col:
+        with image_live:
 
-            st.success(
-                "● LIVE"
-            )
+            if pi_online:
+                st.success("LIVE")
+            else:
+                st.error("OFFLINE")
 
 
         @st.fragment(run_every="2s")
@@ -635,8 +617,8 @@ with image_column:
                 elif response.status_code == 404:
 
                     st.info(
-                        "🌱 No plant image available yet.\n\n"
-                        "Use **Capture Plant Image** to capture a new image."
+                        "🌱 No plant image available yet. "
+                        "Capture an image to begin monitoring."
                     )
 
                 else:
@@ -667,15 +649,21 @@ with control_column:
             "🚿 Precision Spray"
         )
 
-        st.write(
-            "Set the required spray quantity "
-            "and activate the precision sprayer."
+        st.markdown(
+            """
+            <div class="info-text">
+                Configure the required spray quantity
+                and activate the precision sprayer.
+            </div>
+            """,
+            unsafe_allow_html=True
         )
 
         st.divider()
 
+
         dosage = st.number_input(
-            "Spray dosage",
+            "Spray dosage (ml)",
             min_value=1.0,
             max_value=500.0,
             value=25.0,
@@ -684,11 +672,18 @@ with control_column:
             help="Enter the required spray amount in millilitres."
         )
 
+
         st.caption(
-            "Dosage range: 1 – 500 ml"
+            "Allowed range: 1 – 500 ml"
         )
 
+
         st.write("")
+
+
+        # ----------------------------------------------------
+        # CAPTURE
+        # ----------------------------------------------------
 
         if st.button(
             "📷  CAPTURE PLANT IMAGE",
@@ -698,6 +693,10 @@ with control_column:
             capture_image()
 
 
+        # ----------------------------------------------------
+        # SPRAY
+        # ----------------------------------------------------
+
         if st.button(
             "🚿  START PRECISION SPRAY",
             type="primary",
@@ -706,8 +705,9 @@ with control_column:
 
             spray(dosage)
 
+
         st.info(
-            "💡 The selected dosage will be sent "
+            "The selected dosage will be sent "
             "to the Raspberry Pi sprayer."
         )
 
@@ -717,9 +717,7 @@ with control_column:
 # ============================================================
 
 st.markdown(
-    '<div class="section-title">'
-    'Live Spray Status'
-    '</div>',
+    '<div class="section-title">Live Spray Status</div>',
     unsafe_allow_html=True
 )
 
@@ -729,15 +727,16 @@ def show_status():
 
     state = get_state()
 
+
     # --------------------------------------------------------
-    # OFFLINE
+    # BACKEND OFFLINE
     # --------------------------------------------------------
 
     if state is None:
 
         st.markdown(
             """
-            <div class="offline-box">
+            <div class="status-offline">
                 🔴 BACKEND UNAVAILABLE
             </div>
             """,
@@ -752,7 +751,7 @@ def show_status():
 
 
     # --------------------------------------------------------
-    # STATE
+    # CURRENT STATE
     # --------------------------------------------------------
 
     status = state.get(
@@ -774,7 +773,7 @@ def show_status():
 
         st.markdown(
             """
-            <div class="ready-box">
+            <div class="status-ready">
                 🟢 READY
             </div>
             """,
@@ -794,7 +793,7 @@ def show_status():
 
         st.markdown(
             """
-            <div class="spraying-box">
+            <div class="status-spraying">
                 🟠 SPRAYING IN PROGRESS
             </div>
             """,
@@ -814,7 +813,7 @@ def show_status():
 
         st.markdown(
             """
-            <div class="completed-box">
+            <div class="status-completed">
                 🔵 SPRAY COMPLETED
             </div>
             """,
@@ -827,7 +826,7 @@ def show_status():
 
 
     # --------------------------------------------------------
-    # OTHER
+    # OTHER STATUS
     # --------------------------------------------------------
 
     else:
@@ -841,66 +840,98 @@ show_status()
 
 
 # ============================================================
-# PROJECT WORKFLOW
+# CROPIQ WORKFLOW
 # ============================================================
 
 st.markdown(
-    '<div class="section-title">'
-    'CropIQ Workflow'
-    '</div>',
+    '<div class="section-title">CropIQ Workflow</div>',
     unsafe_allow_html=True
 )
+
 
 workflow1, workflow2, workflow3, workflow4 = st.columns(
     4,
     gap="medium"
 )
 
+
+# ------------------------------------------------------------
+# STEP 1
+# ------------------------------------------------------------
+
 with workflow1:
 
     with st.container(border=True):
 
-        st.subheader("01")
-        st.write("📷")
-        st.markdown("**Capture**")
-        st.caption(
-            "Capture the latest plant image."
+        st.markdown(
+            '<div class="workflow-number">STEP 01</div>',
+            unsafe_allow_html=True
         )
 
+        st.subheader("📷 Capture")
+
+        st.caption(
+            "Capture the latest plant image using the Raspberry Pi camera."
+        )
+
+
+# ------------------------------------------------------------
+# STEP 2
+# ------------------------------------------------------------
 
 with workflow2:
 
     with st.container(border=True):
 
-        st.subheader("02")
-        st.write("🌿")
-        st.markdown("**Analyze**")
-        st.caption(
-            "Analyze the target plant area."
+        st.markdown(
+            '<div class="workflow-number">STEP 02</div>',
+            unsafe_allow_html=True
         )
 
+        st.subheader("🌿 Analyze")
+
+        st.caption(
+            "Analyze the captured plant image to identify the target."
+        )
+
+
+# ------------------------------------------------------------
+# STEP 3
+# ------------------------------------------------------------
 
 with workflow3:
 
     with st.container(border=True):
 
-        st.subheader("03")
-        st.write("🎯")
-        st.markdown("**Target**")
-        st.caption(
-            "Determine the required treatment."
+        st.markdown(
+            '<div class="workflow-number">STEP 03</div>',
+            unsafe_allow_html=True
         )
 
+        st.subheader("🎯 Target")
+
+        st.caption(
+            "Determine the treatment area and required spray quantity."
+        )
+
+
+# ------------------------------------------------------------
+# STEP 4
+# ------------------------------------------------------------
 
 with workflow4:
 
     with st.container(border=True):
 
-        st.subheader("04")
-        st.write("🚿")
-        st.markdown("**Spray**")
+        st.markdown(
+            '<div class="workflow-number">STEP 04</div>',
+            unsafe_allow_html=True
+        )
+
+        st.subheader("🚿 Spray")
+
         st.caption(
-            "Apply the selected spray dosage."
+            "Apply the selected spray dosage to the target."
         )
 
 
@@ -912,7 +943,7 @@ st.divider()
 
 st.markdown(
     """
-    <div class="footer-text">
+    <div class="footer">
         🌱 CropIQ &nbsp;•&nbsp;
         Precision Agriculture &nbsp;•&nbsp;
         AI-powered targeted spraying
