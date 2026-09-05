@@ -1,2 +1,2 @@
 #define WIFI_SSID "OPPO"
-#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+#define WIFI_PASSWORD "nrsf3263"
