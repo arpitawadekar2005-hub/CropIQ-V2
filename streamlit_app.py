@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import time
 
 
 # ============================================================
@@ -8,16 +9,17 @@ import requests
 
 BACKEND_URL = "https://cropiq-backend-mecl.onrender.com"
 
+REQUEST_TIMEOUT = 15
+
 
 # ============================================================
 # PAGE CONFIG
 # ============================================================
 
 st.set_page_config(
-    page_title="CropIQ | Precision Agriculture",
+    page_title="CropIQ",
     page_icon="🌱",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    layout="wide"
 )
 
 
@@ -29,226 +31,31 @@ st.markdown(
     """
     <style>
 
-    /* ========================================================
-       GLOBAL
-    ======================================================== */
-
-    .stApp {
-        background-color: #F4F7F3;
-    }
-
-    .block-container {
-        max-width: 1450px;
-        padding-top: 2rem;
-        padding-bottom: 3rem;
-        padding-left: 3rem;
-        padding-right: 3rem;
-    }
-
-    /* Hide Streamlit branding */
-    #MainMenu {
-        visibility: hidden;
-    }
-
-    footer {
-        visibility: hidden;
-    }
-
-
-    /* ========================================================
-       TITLE
-    ======================================================== */
-
-    .cropiq-title {
-        color: #173B29;
+    .main-title {
         font-size: 42px;
-        font-weight: 800;
-        letter-spacing: -1px;
-        margin-bottom: 0;
+        font-weight: 700;
+        margin-bottom: 0px;
     }
 
-    .cropiq-subtitle {
-        color: #6F7D74;
-        font-size: 15px;
-        margin-top: -5px;
+    .subtitle {
+        font-size: 18px;
+        color: #777;
         margin-bottom: 25px;
     }
 
-
-    /* ========================================================
-       SECTION HEADINGS
-    ======================================================== */
-
-    .section-title {
-        color: #173B29;
-        font-size: 21px;
-        font-weight: 750;
-        margin-top: 28px;
-        margin-bottom: 12px;
-    }
-
-
-    /* ========================================================
-       STREAMLIT CONTAINERS
-    ======================================================== */
-
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        background-color: #FFFFFF;
-        border: 1px solid #DFE8E1;
-        border-radius: 16px;
-        box-shadow: 0 4px 16px rgba(23, 59, 41, 0.05);
-    }
-
-
-    /* ========================================================
-       METRICS
-    ======================================================== */
-
-    [data-testid="stMetric"] {
-        padding: 10px;
-    }
-
-    [data-testid="stMetricLabel"] {
-        color: #718078 !important;
-        font-size: 12px !important;
-        font-weight: 700 !important;
-    }
-
-    [data-testid="stMetricValue"] {
-        color: #173B29 !important;
-        font-size: 26px !important;
-        font-weight: 800 !important;
-    }
-
-
-    /* ========================================================
-       BUTTONS
-    ======================================================== */
-
-    .stButton > button {
-        width: 100%;
-        min-height: 48px;
+    .status-box {
+        padding: 15px;
         border-radius: 10px;
-        font-weight: 700;
-        font-size: 14px;
+        border: 1px solid #ddd;
+        margin-bottom: 10px;
     }
 
-    .stButton > button:hover {
-        transform: translateY(-1px);
+    .online {
+        font-weight: bold;
     }
 
-
-    /* ========================================================
-       PRIMARY BUTTON
-    ======================================================== */
-
-    .stButton > button[kind="primary"] {
-        background-color: #1F7A4D;
-        border-color: #1F7A4D;
-        color: white;
-    }
-
-    .stButton > button[kind="primary"]:hover {
-        background-color: #17623D;
-        border-color: #17623D;
-        color: white;
-    }
-
-
-    /* ========================================================
-       STATUS
-    ======================================================== */
-
-    .status-ready {
-        background-color: #ECFDF3;
-        border: 1px solid #BBF7D0;
-        color: #15803D;
-        border-radius: 10px;
-        padding: 14px 16px;
-        font-weight: 700;
-        font-size: 15px;
-    }
-
-    .status-spraying {
-        background-color: #FFF7ED;
-        border: 1px solid #FED7AA;
-        color: #C2410C;
-        border-radius: 10px;
-        padding: 14px 16px;
-        font-weight: 700;
-        font-size: 15px;
-    }
-
-    .status-completed {
-        background-color: #EFF6FF;
-        border: 1px solid #BFDBFE;
-        color: #2563EB;
-        border-radius: 10px;
-        padding: 14px 16px;
-        font-weight: 700;
-        font-size: 15px;
-    }
-
-    .status-offline {
-        background-color: #FEF2F2;
-        border: 1px solid #FECACA;
-        color: #DC2626;
-        border-radius: 10px;
-        padding: 14px 16px;
-        font-weight: 700;
-        font-size: 15px;
-    }
-
-
-    /* ========================================================
-       INFO
-    ======================================================== */
-
-    .info-text {
-        color: #6F7D74;
-        font-size: 13px;
-        line-height: 1.5;
-    }
-
-
-    /* ========================================================
-       WORKFLOW CARDS
-    ======================================================== */
-
-    .workflow-number {
-        color: #1F7A4D;
-        font-size: 13px;
-        font-weight: 800;
-    }
-
-
-    /* ========================================================
-       FOOTER
-    ======================================================== */
-
-    .footer {
-        text-align: center;
-        color: #89958C;
-        font-size: 12px;
-        margin-top: 20px;
-    }
-
-
-    /* ========================================================
-       MOBILE
-    ======================================================== */
-
-    @media (max-width: 800px) {
-
-        .block-container {
-            padding-left: 1rem;
-            padding-right: 1rem;
-        }
-
-        .cropiq-title {
-            font-size: 32px;
-        }
-
+    .offline {
+        font-weight: bold;
     }
 
     </style>
@@ -258,7 +65,22 @@ st.markdown(
 
 
 # ============================================================
-# BACKEND FUNCTIONS
+# TITLE
+# ============================================================
+
+st.markdown(
+    '<div class="main-title">🌱 CropIQ</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="subtitle">Precision Agriculture Rover & Plant Monitoring</div>',
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# HELPER FUNCTIONS
 # ============================================================
 
 def get_state():
@@ -267,672 +89,684 @@ def get_state():
 
         response = requests.get(
             BACKEND_URL + "/state",
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
 
-        if response.status_code == 200:
-            return response.json()
+        response.raise_for_status()
 
-    except Exception:
-        pass
+        return response.json()
 
-    return None
+    except Exception as e:
+
+        return None
 
 
-def capture_image():
+def send_capture():
 
     try:
 
         response = requests.post(
             BACKEND_URL + "/capture",
-            timeout=15
+            timeout=REQUEST_TIMEOUT
         )
 
-        if response.status_code == 200:
-
-            st.success(
-                "📷 Capture command sent to Raspberry Pi."
-            )
-
-        elif response.status_code == 409:
-
-            st.warning(
-                "Another command is already pending."
-            )
-
-        else:
-
-            st.error(response.text)
+        return response
 
     except Exception as e:
 
-        st.error(
-            f"Backend connection failed: {e}"
-        )
+        st.error(f"Backend connection error: {e}")
+
+        return None
 
 
-def spray(amount):
+def send_spray(amount_ml):
 
     try:
 
         response = requests.post(
             BACKEND_URL + "/spray",
             json={
-                "amount_ml": amount
+                "amount_ml": amount_ml
             },
-            timeout=15
+            timeout=REQUEST_TIMEOUT
+        )
+
+        return response
+
+    except Exception as e:
+
+        st.error(f"Backend connection error: {e}")
+
+        return None
+
+
+def send_rover_command(command, speed):
+
+    try:
+
+        response = requests.post(
+            BACKEND_URL + "/rover",
+            json={
+                "command": command,
+                "speed": speed
+            },
+            timeout=REQUEST_TIMEOUT
+        )
+
+        return response
+
+    except Exception as e:
+
+        st.error(f"Backend connection error: {e}")
+
+        return None
+
+
+def get_latest_image():
+
+    try:
+
+        response = requests.get(
+            BACKEND_URL + "/latest-image",
+            timeout=REQUEST_TIMEOUT
         )
 
         if response.status_code == 200:
 
-            data = response.json()
+            return response.content
 
-            st.success(
-                f"🚿 Spray command sent: "
-                f"{data['amount_ml']:.0f} ml"
-            )
+        return None
 
-        elif response.status_code == 409:
+    except Exception:
 
-            st.warning(
-                "A spray operation is already running."
-            )
-
-        else:
-
-            st.error(response.text)
-
-    except Exception as e:
-
-        st.error(
-            f"Backend connection failed: {e}"
-        )
+        return None
 
 
 # ============================================================
-# GET INITIAL STATE
+# TOP STATUS
 # ============================================================
 
 state = get_state()
 
-if state is not None:
 
-    pi_online = True
+if state is None:
 
-    current_status = state.get(
-        "status",
-        "Ready"
+    st.error("🔴 Cannot connect to CropIQ backend")
+
+else:
+
+    raspberry_state = state.get("raspberry_pi", {})
+    esp32_state = state.get("esp32", {})
+
+    spray_status = raspberry_state.get(
+        "spray_status",
+        "Unknown"
     )
 
-    sprayed_amount = state.get(
+    sprayed_amount = raspberry_state.get(
         "sprayed_amount",
         0.0
     )
 
-else:
+    esp32_online = esp32_state.get(
+        "online",
+        False
+    )
 
-    pi_online = False
+    rover_status = esp32_state.get(
+        "rover_status",
+        "UNKNOWN"
+    )
 
-    current_status = "Offline"
-
-    sprayed_amount = 0.0
-
-
-# ============================================================
-# HEADER
-# ============================================================
-
-header_left, header_right = st.columns(
-    [4, 1],
-    vertical_alignment="center"
-)
-
-
-with header_left:
-
-    st.markdown(
-        """
-        <div class="cropiq-title">
-            🌱 CropIQ
-        </div>
-
-        <div class="cropiq-subtitle">
-            Precision Agriculture Intelligence Platform
-        </div>
-        """,
-        unsafe_allow_html=True
+    rover_speed = esp32_state.get(
+        "speed",
+        50
     )
 
 
-with header_right:
+    # ========================================================
+    # STATUS COLUMNS
+    # ========================================================
 
-    if pi_online:
+    status1, status2, status3 = st.columns(3)
 
-        st.success(
-            "● SYSTEM ONLINE"
+
+    with status1:
+
+        st.metric(
+            "💧 Spray Status",
+            spray_status
         )
 
-    else:
 
-        st.error(
-            "● SYSTEM OFFLINE"
+    with status2:
+
+        st.metric(
+            "💦 Sprayed Amount",
+            f"{sprayed_amount:.2f} ml"
         )
 
 
-# ============================================================
-# PAGE INTRODUCTION
-# ============================================================
+    with status3:
 
-st.markdown(
-    """
-    <div class="section-title">
-        Precision Spraying Control
-    </div>
+        if esp32_online:
 
-    <div class="info-text">
-        Monitor the plant, capture images, configure spray dosage,
-        and control the precision spraying system.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-# ============================================================
-# SYSTEM OVERVIEW
-# ============================================================
-
-st.markdown(
-    '<div class="section-title">System Overview</div>',
-    unsafe_allow_html=True
-)
-
-
-metric1, metric2, metric3, metric4 = st.columns(
-    4,
-    gap="medium"
-)
-
-
-# ------------------------------------------------------------
-# SPRAYER STATUS
-# ------------------------------------------------------------
-
-with metric1:
-
-    with st.container(border=True):
-
-        if current_status == "Ready":
-
-            display_status = "READY"
-
-        elif current_status == "Spraying...":
-
-            display_status = "SPRAYING"
-
-        elif current_status == "Completed":
-
-            display_status = "COMPLETED"
+            st.metric(
+                "🚜 Rover",
+                "ONLINE"
+            )
 
         else:
 
-            display_status = "OFFLINE"
-
-        st.metric(
-            label="🚿 SPRAYER STATUS",
-            value=display_status
-        )
-
-        st.caption(
-            "Current operation"
-        )
-
-
-# ------------------------------------------------------------
-# LAST DISPENSED
-# ------------------------------------------------------------
-
-with metric2:
-
-    with st.container(border=True):
-
-        st.metric(
-            label="💧 LAST DISPENSED",
-            value=f"{sprayed_amount:.1f} ml"
-        )
-
-        st.caption(
-            "Latest spray quantity"
-        )
-
-
-# ------------------------------------------------------------
-# CAMERA
-# ------------------------------------------------------------
-
-with metric3:
-
-    with st.container(border=True):
-
-        camera_status = (
-            "READY"
-            if pi_online
-            else "OFFLINE"
-        )
-
-        st.metric(
-            label="📷 CAMERA",
-            value=camera_status
-        )
-
-        st.caption(
-            "Plant imaging system"
-        )
-
-
-# ------------------------------------------------------------
-# RASPBERRY PI
-# ------------------------------------------------------------
-
-with metric4:
-
-    with st.container(border=True):
-
-        device_status = (
-            "ONLINE"
-            if pi_online
-            else "OFFLINE"
-        )
-
-        st.metric(
-            label="📡 RASPBERRY PI",
-            value=device_status
-        )
-
-        st.caption(
-            "Hardware connection"
-        )
-
-
-# ============================================================
-# PLANT MONITORING & CONTROL
-# ============================================================
-
-st.markdown(
-    '<div class="section-title">Plant Monitoring & Control</div>',
-    unsafe_allow_html=True
-)
-
-
-image_column, control_column = st.columns(
-    [2.1, 1],
-    gap="large"
-)
-
-
-# ============================================================
-# PLANT IMAGE
-# ============================================================
-
-with image_column:
-
-    with st.container(border=True):
-
-        image_title, image_live = st.columns(
-            [4, 1],
-            vertical_alignment="center"
-        )
-
-        with image_title:
-
-            st.subheader(
-                "🌿 Latest Plant Image"
+            st.metric(
+                "🚜 Rover",
+                "OFFLINE"
             )
 
-        with image_live:
 
-            if pi_online:
-                st.success("LIVE")
+# ============================================================
+# DIVIDER
+# ============================================================
+
+st.divider()
+
+
+# ============================================================
+# CAMERA SECTION
+# ============================================================
+
+st.header("📷 Plant Monitoring")
+
+
+camera_col, capture_col = st.columns([3, 1])
+
+
+with capture_col:
+
+    st.subheader("Camera")
+
+    if st.button(
+        "📸 CAPTURE IMAGE",
+        use_container_width=True
+    ):
+
+        response = send_capture()
+
+        if response is not None:
+
+            if response.status_code == 200:
+
+                st.success(
+                    "Capture command sent!"
+                )
+
             else:
-                st.error("OFFLINE")
 
-
-        @st.fragment(run_every="2s")
-        def show_latest_image():
-
-            try:
-
-                response = requests.get(
-                    BACKEND_URL + "/latest-image",
-                    timeout=10
-                )
-
-                if response.status_code == 200:
-
-                    st.image(
-                        response.content,
-                        use_container_width=True
+                try:
+                    error_message = response.json().get(
+                        "detail",
+                        response.text
                     )
+                except Exception:
+                    error_message = response.text
 
-                elif response.status_code == 404:
-
-                    st.info(
-                        "🌱 No plant image available yet. "
-                        "Capture an image to begin monitoring."
-                    )
-
-                else:
-
-                    st.warning(
-                        "Unable to load the latest plant image."
-                    )
-
-            except Exception:
-
-                st.warning(
-                    "📡 Waiting for Raspberry Pi..."
+                st.error(
+                    f"Capture failed: {error_message}"
                 )
 
 
-        show_latest_image()
+with camera_col:
+
+    st.subheader("Latest Plant Image")
+
+
+    # --------------------------------------------------------
+    # Automatically refresh image every 2 seconds
+    # --------------------------------------------------------
+
+    @st.fragment(run_every="2s")
+    def show_latest_image():
+
+        image = get_latest_image()
+
+        if image is not None:
+
+            st.image(
+                image,
+                caption="Latest captured plant image",
+                use_container_width=True
+            )
+
+        else:
+
+            st.info(
+                "📷 No plant image available yet."
+            )
+
+
+    show_latest_image()
 
 
 # ============================================================
-# SPRAY CONTROL
+# SPRAY SECTION
 # ============================================================
 
-with control_column:
+st.divider()
 
-    with st.container(border=True):
-
-        st.subheader(
-            "🚿 Precision Spray"
-        )
-
-        st.markdown(
-            """
-            <div class="info-text">
-                Configure the required spray quantity
-                and activate the precision sprayer.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.divider()
+st.header("💧 Precision Spraying")
 
 
-        dosage = st.number_input(
-            "Spray dosage (ml)",
-            min_value=1.0,
-            max_value=500.0,
-            value=25.0,
-            step=1.0,
-            format="%.0f",
-            help="Enter the required spray amount in millilitres."
-        )
+spray_col1, spray_col2 = st.columns([2, 1])
 
 
-        st.caption(
-            "Allowed range: 1 – 500 ml"
-        )
+with spray_col1:
+
+    dosage = st.number_input(
+        "Spray dosage (ml)",
+        min_value=1.0,
+        max_value=500.0,
+        value=20.0,
+        step=1.0
+    )
 
 
-        st.write("")
+with spray_col2:
+
+    st.write("")
+
+    st.write("")
+
+    if st.button(
+        "🚿 START SPRAY",
+        use_container_width=True
+    ):
+
+        response = send_spray(dosage)
+
+        if response is not None:
+
+            if response.status_code == 200:
+
+                st.success(
+                    f"Spray command sent: {dosage:.1f} ml"
+                )
+
+            else:
+
+                try:
+                    error_message = response.json().get(
+                        "detail",
+                        response.text
+                    )
+                except Exception:
+                    error_message = response.text
+
+                st.error(
+                    f"Spray failed: {error_message}"
+                )
 
 
-        # ----------------------------------------------------
-        # CAPTURE
-        # ----------------------------------------------------
+# ============================================================
+# ROVER CONTROL
+# ============================================================
 
-        if st.button(
-            "📷  CAPTURE PLANT IMAGE",
-            use_container_width=True
-        ):
+st.divider()
 
-            capture_image()
+st.header("🚜 Rover Control")
 
 
-        # ----------------------------------------------------
-        # SPRAY
-        # ----------------------------------------------------
+# ============================================================
+# ROVER STATUS AUTO REFRESH
+# ============================================================
 
-        if st.button(
-            "🚿  START PRECISION SPRAY",
-            type="primary",
-            use_container_width=True
-        ):
+@st.fragment(run_every="2s")
+def rover_status_display():
 
-            spray(dosage)
+    current_state = get_state()
 
+    if current_state is None:
+
+        st.error("Unable to get rover status.")
+
+        return
+
+
+    esp32 = current_state.get(
+        "esp32",
+        {}
+    )
+
+    online = esp32.get(
+        "online",
+        False
+    )
+
+    status = esp32.get(
+        "rover_status",
+        "UNKNOWN"
+    )
+
+    speed = esp32.get(
+        "speed",
+        50
+    )
+
+
+    col1, col2, col3 = st.columns(3)
+
+
+    with col1:
+
+        if online:
+
+            st.success("🟢 ESP32 ONLINE")
+
+        else:
+
+            st.error("🔴 ESP32 OFFLINE")
+
+
+    with col2:
 
         st.info(
-            "The selected dosage will be sent "
-            "to the Raspberry Pi sprayer."
+            f"Rover: **{status}**"
         )
 
 
+    with col3:
+
+        st.info(
+            f"Speed: **{speed}%**"
+        )
+
+
+rover_status_display()
+
+
 # ============================================================
-# LIVE SPRAY STATUS
+# SPEED
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">Live Spray Status</div>',
-    unsafe_allow_html=True
+speed = st.slider(
+    "Rover Speed",
+    min_value=0,
+    max_value=100,
+    value=50,
+    step=5
 )
 
 
-@st.fragment(run_every="2s")
-def show_status():
+# ============================================================
+# ROVER BUTTONS
+# ============================================================
 
-    state = get_state()
+st.write("### Direction")
 
 
-    # --------------------------------------------------------
-    # BACKEND OFFLINE
-    # --------------------------------------------------------
+# ------------------------------------------------------------
+# FORWARD
+# ------------------------------------------------------------
 
-    if state is None:
+row1_col1, row1_col2, row1_col3 = st.columns(3)
 
-        st.markdown(
-            """
-            <div class="status-offline">
-                🔴 BACKEND UNAVAILABLE
-            </div>
-            """,
-            unsafe_allow_html=True
+
+with row1_col2:
+
+    if st.button(
+        "⬆️ FORWARD",
+        use_container_width=True
+    ):
+
+        response = send_rover_command(
+            "F",
+            speed
         )
 
-        st.caption(
-            "Unable to communicate with the CropIQ control system."
+        if response is not None:
+
+            if response.status_code != 200:
+
+                try:
+                    error_message = response.json().get(
+                        "detail",
+                        response.text
+                    )
+                except Exception:
+                    error_message = response.text
+
+                st.error(
+                    f"Forward command failed: {error_message}"
+                )
+
+
+# ------------------------------------------------------------
+# LEFT / STOP / RIGHT
+# ------------------------------------------------------------
+
+row2_col1, row2_col2, row2_col3 = st.columns(3)
+
+
+with row2_col1:
+
+    if st.button(
+        "⬅️ LEFT",
+        use_container_width=True
+    ):
+
+        response = send_rover_command(
+            "L",
+            speed
+        )
+
+        if response is not None:
+
+            if response.status_code != 200:
+
+                try:
+                    error_message = response.json().get(
+                        "detail",
+                        response.text
+                    )
+                except Exception:
+                    error_message = response.text
+
+                st.error(
+                    f"Left command failed: {error_message}"
+                )
+
+
+with row2_col2:
+
+    if st.button(
+        "⛔ STOP",
+        use_container_width=True
+    ):
+
+        response = send_rover_command(
+            "S",
+            speed
+        )
+
+        if response is not None:
+
+            if response.status_code == 200:
+
+                st.success("Rover stopped.")
+
+            else:
+
+                try:
+                    error_message = response.json().get(
+                        "detail",
+                        response.text
+                    )
+                except Exception:
+                    error_message = response.text
+
+                st.error(
+                    f"Stop command failed: {error_message}"
+                )
+
+
+with row2_col3:
+
+    if st.button(
+        "➡️ RIGHT",
+        use_container_width=True
+    ):
+
+        response = send_rover_command(
+            "R",
+            speed
+        )
+
+        if response is not None:
+
+            if response.status_code != 200:
+
+                try:
+                    error_message = response.json().get(
+                        "detail",
+                        response.text
+                    )
+                except Exception:
+                    error_message = response.text
+
+                st.error(
+                    f"Right command failed: {error_message}"
+                )
+
+
+# ------------------------------------------------------------
+# BACKWARD
+# ------------------------------------------------------------
+
+row3_col1, row3_col2, row3_col3 = st.columns(3)
+
+
+with row3_col2:
+
+    if st.button(
+        "⬇️ BACKWARD",
+        use_container_width=True
+    ):
+
+        response = send_rover_command(
+            "B",
+            speed
+        )
+
+        if response is not None:
+
+            if response.status_code != 200:
+
+                try:
+                    error_message = response.json().get(
+                        "detail",
+                        response.text
+                    )
+                except Exception:
+                    error_message = response.text
+
+                st.error(
+                    f"Backward command failed: {error_message}"
+                )
+
+
+# ============================================================
+# SYSTEM STATUS
+# ============================================================
+
+st.divider()
+
+st.header("🔧 System Status")
+
+
+@st.fragment(run_every="3s")
+def system_status():
+
+    current_state = get_state()
+
+    if current_state is None:
+
+        st.error(
+            "🔴 Backend unavailable"
         )
 
         return
 
 
-    # --------------------------------------------------------
-    # CURRENT STATE
-    # --------------------------------------------------------
-
-    status = state.get(
-        "status",
-        "Ready"
+    raspberry = current_state.get(
+        "raspberry_pi",
+        {}
     )
 
-    amount = state.get(
-        "sprayed_amount",
-        0.0
+    esp32 = current_state.get(
+        "esp32",
+        {}
     )
 
 
-    # --------------------------------------------------------
-    # READY
-    # --------------------------------------------------------
-
-    if status == "Ready":
-
-        st.markdown(
-            """
-            <div class="status-ready">
-                🟢 READY
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.caption(
-            "System is ready for the next precision spraying operation."
-        )
+    col1, col2 = st.columns(2)
 
 
-    # --------------------------------------------------------
-    # SPRAYING
-    # --------------------------------------------------------
+    with col1:
 
-    elif status == "Spraying...":
+        st.subheader("🍓 Raspberry Pi")
 
-        st.markdown(
-            """
-            <div class="status-spraying">
-                🟠 SPRAYING IN PROGRESS
-            </div>
-            """,
-            unsafe_allow_html=True
+        st.write(
+            f"Spray status: **{raspberry.get('spray_status', 'Unknown')}**"
         )
 
         st.write(
-            f"💧 Dispensed: **{amount:.2f} ml**"
+            f"Sprayed amount: **{raspberry.get('sprayed_amount', 0):.2f} ml**"
         )
 
+        if raspberry.get(
+            "image_available",
+            False
+        ):
 
-    # --------------------------------------------------------
-    # COMPLETED
-    # --------------------------------------------------------
+            st.success(
+                "📷 Image available"
+            )
 
-    elif status == "Completed":
+        else:
 
-        st.markdown(
-            """
-            <div class="status-completed">
-                🔵 SPRAY COMPLETED
-            </div>
-            """,
-            unsafe_allow_html=True
+            st.info(
+                "📷 No image available"
+            )
+
+
+    with col2:
+
+        st.subheader("🚜 ESP32")
+
+        if esp32.get(
+            "online",
+            False
+        ):
+
+            st.success(
+                "🟢 ESP32 connected"
+            )
+
+        else:
+
+            st.error(
+                "🔴 ESP32 disconnected"
+            )
+
+        st.write(
+            f"Rover status: **{esp32.get('rover_status', 'Unknown')}**"
         )
 
         st.write(
-            f"💧 Total dispensed: **{amount:.2f} ml**"
+            f"Speed: **{esp32.get('speed', 0)}%**"
         )
 
 
-    # --------------------------------------------------------
-    # OTHER STATUS
-    # --------------------------------------------------------
-
-    else:
-
-        st.info(
-            f"Current status: {status}"
-        )
-
-
-show_status()
-
-
-# ============================================================
-# CROPIQ WORKFLOW
-# ============================================================
-
-st.markdown(
-    '<div class="section-title">CropIQ Workflow</div>',
-    unsafe_allow_html=True
-)
-
-
-workflow1, workflow2, workflow3, workflow4 = st.columns(
-    4,
-    gap="medium"
-)
-
-
-# ------------------------------------------------------------
-# STEP 1
-# ------------------------------------------------------------
-
-with workflow1:
-
-    with st.container(border=True):
-
-        st.markdown(
-            '<div class="workflow-number">STEP 01</div>',
-            unsafe_allow_html=True
-        )
-
-        st.subheader("📷 Capture")
-
-        st.caption(
-            "Capture the latest plant image using the Raspberry Pi camera."
-        )
-
-
-# ------------------------------------------------------------
-# STEP 2
-# ------------------------------------------------------------
-
-with workflow2:
-
-    with st.container(border=True):
-
-        st.markdown(
-            '<div class="workflow-number">STEP 02</div>',
-            unsafe_allow_html=True
-        )
-
-        st.subheader("🌿 Analyze")
-
-        st.caption(
-            "Analyze the captured plant image to identify the target."
-        )
-
-
-# ------------------------------------------------------------
-# STEP 3
-# ------------------------------------------------------------
-
-with workflow3:
-
-    with st.container(border=True):
-
-        st.markdown(
-            '<div class="workflow-number">STEP 03</div>',
-            unsafe_allow_html=True
-        )
-
-        st.subheader("🎯 Target")
-
-        st.caption(
-            "Determine the treatment area and required spray quantity."
-        )
-
-
-# ------------------------------------------------------------
-# STEP 4
-# ------------------------------------------------------------
-
-with workflow4:
-
-    with st.container(border=True):
-
-        st.markdown(
-            '<div class="workflow-number">STEP 04</div>',
-            unsafe_allow_html=True
-        )
-
-        st.subheader("🚿 Spray")
-
-        st.caption(
-            "Apply the selected spray dosage to the target."
-        )
+system_status()
 
 
 # ============================================================
@@ -941,13 +775,6 @@ with workflow4:
 
 st.divider()
 
-st.markdown(
-    """
-    <div class="footer">
-        🌱 CropIQ &nbsp;•&nbsp;
-        Precision Agriculture &nbsp;•&nbsp;
-        AI-powered targeted spraying
-    </div>
-    """,
-    unsafe_allow_html=True
+st.caption(
+    "CropIQ • Precision Agriculture Rover System"
 )
