@@ -1234,7 +1234,7 @@ with header_left:
         <div class="header-brand">
 
             <div class="header-logo">
-                🌱
+                🌿
             </div>
 
             <div>
