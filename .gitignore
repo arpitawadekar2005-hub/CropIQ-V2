@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+
+.env
+secrets.h
+
+.streamlit/secrets.toml
+
+.vscode/
+.idea/
