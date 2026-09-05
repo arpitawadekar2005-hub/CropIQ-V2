@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
 from datetime import datetime
+from textwrap import dedent
+import time
 
 
 # ============================================================
@@ -16,11 +18,24 @@ REQUEST_TIMEOUT = 15
 # ============================================================
 
 st.set_page_config(
-    page_title="CropIQ",
+    page_title="CropIQ | Precision Agriculture",
     page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+
+# ============================================================
+# HTML HELPER
+# IMPORTANT:
+# dedent() prevents Streamlit from displaying HTML as code.
+# ============================================================
+
+def html(content):
+    st.markdown(
+        dedent(content),
+        unsafe_allow_html=True
+    )
 
 
 # ============================================================
@@ -29,604 +44,708 @@ st.set_page_config(
 
 st.markdown(
     """
-    <style>
+<style>
 
-    /* ========================================================
-       GLOBAL
-       ======================================================== */
-
-    .stApp {
-        background: #f5f8f6;
-    }
-
-    .main .block-container {
-        max-width: 1500px;
-        padding-top: 1.2rem;
-        padding-bottom: 2rem;
-        padding-left: 2rem;
-        padding-right: 2rem;
-    }
-
-    /* Remove unnecessary Streamlit elements */
-
-    #MainMenu {
-        visibility: hidden;
-    }
-
-    footer {
-        visibility: hidden;
-    }
-
-    header {
-        background: transparent;
-    }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 
-    /* ========================================================
-       SIDEBAR
-       ======================================================== */
+/* ==========================================================
+   GLOBAL
+   ========================================================== */
 
-    [data-testid="stSidebar"] {
-        background: linear-gradient(
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
+.stApp {
+    background: #f4f8f5;
+    color: #102c26;
+}
+
+
+/* Hide Streamlit default elements */
+
+#MainMenu {
+    visibility: hidden;
+}
+
+footer {
+    visibility: hidden;
+}
+
+header {
+    background: transparent !important;
+}
+
+
+/* Main content */
+
+.block-container {
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+    max-width: 1500px;
+}
+
+
+/* ==========================================================
+   SIDEBAR
+   ========================================================== */
+
+[data-testid="stSidebar"] {
+    background:
+        linear-gradient(
             180deg,
-            #063b32 0%,
-            #06483b 55%,
-            #06382f 100%
+            #003f32 0%,
+            #004c3d 45%,
+            #002f27 100%
         );
-        min-width: 235px;
-        max-width: 235px;
-    }
+    border-right: none;
+}
 
-    [data-testid="stSidebar"] > div:first-child {
-        padding-top: 1.2rem;
-    }
-
-    [data-testid="stSidebar"] * {
-        color: white;
-    }
-
-    .sidebar-logo {
-        text-align: center;
-        padding: 8px 0 25px 0;
-    }
-
-    .sidebar-logo-icon {
-        font-size: 42px;
-        line-height: 1;
-    }
-
-    .sidebar-logo-text {
-        font-size: 28px;
-        font-weight: 800;
-        letter-spacing: -1px;
-        margin-top: 5px;
-    }
-
-    .sidebar-version {
-        font-size: 11px;
-        color: #a8c8be !important;
-        margin-top: 2px;
-    }
-
-    .sidebar-section {
-        color: #91b8ad !important;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 1.2px;
-        margin: 12px 0 8px 4px;
-    }
-
-    /* Sidebar buttons */
-
-    [data-testid="stSidebar"] .stButton > button {
-        background: transparent;
-        border: none;
-        color: #e7f3ef;
-        text-align: left;
-        border-radius: 9px;
-        min-height: 43px;
-        font-size: 13px;
-        font-weight: 500;
-        margin-bottom: 3px;
-        padding-left: 15px;
-    }
-
-    [data-testid="stSidebar"] .stButton > button:hover {
-        background: rgba(255,255,255,0.10);
-        color: white;
-        border: none;
-    }
-
-    .sidebar-online {
-        border: 1px solid rgba(142, 220, 169, 0.45);
-        background: rgba(11, 101, 72, 0.35);
-        border-radius: 13px;
-        padding: 15px;
-        margin-top: 30px;
-    }
-
-    .sidebar-online-title {
-        font-size: 11px;
-        color: #b7d4cc !important;
-    }
-
-    .sidebar-online-status {
-        font-size: 17px;
-        font-weight: 800;
-        color: #8be28c !important;
-        margin-top: 3px;
-    }
-
-    .sidebar-online-detail {
-        font-size: 11px;
-        color: #b7d4cc !important;
-        margin-top: 12px;
-    }
-
-    .sidebar-online-value {
-        font-size: 14px;
-        color: white !important;
-        font-weight: 600;
-    }
+[data-testid="stSidebar"] > div:first-child {
+    padding-top: 1.5rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
 
 
-    /* ========================================================
-       TOP HEADER
-       ======================================================== */
+/* Sidebar brand */
+
+.sidebar-brand {
+    text-align: center;
+    padding: 10px 5px 25px 5px;
+}
+
+.sidebar-logo {
+    font-size: 48px;
+    line-height: 1;
+    margin-bottom: 5px;
+}
+
+.sidebar-title {
+    color: white;
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -1px;
+}
+
+.sidebar-tagline {
+    color: #d5eee4;
+    font-size: 13px;
+    line-height: 1.5;
+    margin-top: 10px;
+}
+
+
+/* Sidebar menu */
+
+.menu-label {
+    color: #8dc4b5;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    margin-top: 20px;
+    margin-bottom: 12px;
+    padding-left: 8px;
+}
+
+.sidebar-menu-item {
+    color: #e4f5ef;
+    padding: 13px 15px;
+    margin: 5px 0;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.sidebar-menu-item.active {
+    background: linear-gradient(
+        90deg,
+        #15945b,
+        #087b4b
+    );
+    color: white;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+}
+
+.sidebar-menu-icon {
+    width: 28px;
+    display: inline-block;
+    font-size: 19px;
+}
+
+
+/* Sidebar hardware */
+
+.sidebar-hardware {
+    margin-top: 35px;
+    border: 1px solid rgba(164, 223, 203, 0.35);
+    border-radius: 14px;
+    padding: 15px;
+    background: rgba(0, 30, 23, 0.25);
+}
+
+.hardware-title {
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.hardware-online {
+    color: #8bea4d;
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: 3px;
+}
+
+.hardware-uptime {
+    color: #d2e8e0;
+    font-size: 12px;
+    margin-top: 12px;
+}
+
+
+/* ==========================================================
+   TOP HEADER
+   ========================================================== */
+
+.top-header {
+    background: rgba(255,255,255,0.96);
+    border: 1px solid #e5ece8;
+    border-radius: 18px;
+    padding: 16px 22px;
+    box-shadow: 0 8px 30px rgba(20, 70, 55, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+}
+
+.brand-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.brand-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 13px;
+    background: #edf7ee;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 27px;
+}
+
+.brand-name {
+    color: #073d32;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.brand-subtitle {
+    color: #71807d;
+    font-size: 12px;
+    margin-top: 3px;
+}
+
+.top-right {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+}
+
+.system-online {
+    border: 1px solid #b8ddc8;
+    border-radius: 10px;
+    padding: 10px 16px;
+    color: #167343;
+    background: #f5fcf7;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.green-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    background: #3dbb58;
+    border-radius: 50%;
+    margin-right: 7px;
+    box-shadow: 0 0 0 3px #e0f5e5;
+}
+
+.datetime {
+    color: #596663;
+    font-size: 13px;
+}
+
+
+/* ==========================================================
+   PAGE TITLE
+   ========================================================== */
+
+.page-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: #073d32;
+    margin-top: 8px;
+}
+
+.page-description {
+    color: #6d7d79;
+    font-size: 13px;
+    margin-bottom: 22px;
+}
+
+
+/* ==========================================================
+   SECTION TITLES
+   ========================================================== */
+
+.section-title {
+    color: #073d32;
+    font-size: 20px;
+    font-weight: 800;
+    margin-top: 20px;
+    margin-bottom: 13px;
+}
+
+
+/* ==========================================================
+   KPI CARDS
+   ========================================================== */
+
+.kpi-card {
+    background: white;
+    border: 1px solid #e4ebe7;
+    border-radius: 15px;
+    padding: 17px;
+    min-height: 135px;
+    box-shadow: 0 5px 18px rgba(30, 70, 55, 0.06);
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-card:hover {
+    box-shadow: 0 8px 25px rgba(30, 70, 55, 0.10);
+    transform: translateY(-1px);
+}
+
+.kpi-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #eef8ef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 10px;
+}
+
+.kpi-label {
+    font-size: 10px;
+    color: #697672;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.kpi-value {
+    font-size: 22px;
+    font-weight: 800;
+    margin-top: 5px;
+    color: #087442;
+}
+
+.kpi-description {
+    color: #7b8784;
+    font-size: 11px;
+    margin-top: 7px;
+}
+
+
+/* ==========================================================
+   MAIN CARDS
+   ========================================================== */
+
+.panel {
+    background: white;
+    border: 1px solid #e3ebe7;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 5px 20px rgba(30,70,55,0.06);
+    height: 100%;
+}
+
+.panel-title {
+    color: #0a322a;
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 14px;
+}
+
+.panel-subtitle {
+    color: #71807d;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+
+/* ==========================================================
+   LIVE BADGE
+   ========================================================== */
+
+.live-badge {
+    display: inline-block;
+    background: #eaf8ee;
+    color: #187443;
+    border: 1px solid #cdebd6;
+    padding: 7px 12px;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.live-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #2fbe50;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+
+/* ==========================================================
+   CAMERA
+   ========================================================== */
+
+.camera-container {
+    background: #0d211c;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    min-height: 350px;
+}
+
+.camera-placeholder {
+    min-height: 350px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #d3e4df;
+    background:
+        linear-gradient(
+            135deg,
+            #193b30,
+            #0b241c
+        );
+}
+
+.camera-placeholder-icon {
+    font-size: 55px;
+    margin-bottom: 12px;
+}
+
+.camera-placeholder-text {
+    font-size: 14px;
+}
+
+
+/* ==========================================================
+   ROVER
+   ========================================================== */
+
+.mode-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.mode-active {
+    background: #15945b;
+    color: white;
+    padding: 9px 18px;
+    border-radius: 22px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.mode-inactive {
+    background: #f1f4f5;
+    color: #596663;
+    padding: 9px 18px;
+    border-radius: 22px;
+    font-size: 12px;
+}
+
+
+.rover-pad {
+    width: 245px;
+    margin: 12px auto 18px auto;
+}
+
+.rover-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.rover-button {
+    width: 70px;
+    height: 60px;
+    background: #d4f3e2;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #087442;
+    font-size: 25px;
+    font-weight: 800;
+}
+
+.rover-stop {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: #b8ebd1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #087442;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+
+/* ==========================================================
+   SPRAYER
+   ========================================================== */
+
+.sprayer-status {
+    background: #f4f7f8;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 15px;
+}
+
+.sprayer-status-label {
+    color: #263b37;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.status-off {
+    color: #626e6b;
+    font-weight: 700;
+}
+
+.status-on {
+    color: #087442;
+    font-weight: 800;
+}
+
+.spray-info {
+    background: #effaf2;
+    border: 1px solid #d2ecd8;
+    border-radius: 11px;
+    padding: 13px;
+    color: #246443;
+    font-size: 12px;
+    margin-top: 12px;
+}
+
+
+/* ==========================================================
+   AI DETECTION
+   ========================================================== */
+
+.detection-panel {
+    background: white;
+    border: 1px solid #e4ebe7;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 5px 20px rgba(30,70,55,0.06);
+}
+
+.disease-card {
+    background: #fff6f6;
+    border-radius: 12px;
+    border: 1px solid #f1d7d7;
+    padding: 17px;
+    margin-bottom: 12px;
+}
+
+.disease-title {
+    color: #9e1717;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.disease-name {
+    color: #172d29;
+    font-size: 20px;
+    font-weight: 800;
+    margin-top: 4px;
+}
+
+.disease-description {
+    color: #687571;
+    font-size: 12px;
+    margin-top: 7px;
+}
+
+.recommendation {
+    background: #eaf9ef;
+    border-radius: 12px;
+    border: 1px solid #cdebd5;
+    padding: 17px;
+}
+
+.recommendation-title {
+    color: #11703e;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.recommendation-name {
+    color: #17352d;
+    font-size: 18px;
+    font-weight: 800;
+    margin-top: 4px;
+}
+
+
+/* ==========================================================
+   QUOTE CARD
+   ========================================================== */
+
+.quote-card {
+    height: 100%;
+    min-height: 250px;
+    background:
+        linear-gradient(
+            135deg,
+            #f6fbf5,
+            #edf8ef
+        );
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 25px;
+}
+
+.quote-icon {
+    font-size: 45px;
+}
+
+.quote {
+    color: #17382f;
+    font-size: 19px;
+    font-style: italic;
+    line-height: 1.5;
+    font-weight: 600;
+}
+
+.quote-line {
+    width: 55px;
+    height: 4px;
+    border-radius: 5px;
+    background: #23a65f;
+    margin-top: 15px;
+}
+
+
+/* ==========================================================
+   BUTTONS
+   ========================================================== */
+
+.stButton > button {
+    border-radius: 10px !important;
+    min-height: 43px !important;
+    font-weight: 600 !important;
+    border: 1px solid #dce5e1 !important;
+}
+
+.stButton > button:hover {
+    border-color: #15945b !important;
+}
+
+button[kind="primary"] {
+    background: #128a50 !important;
+    border-color: #128a50 !important;
+    color: white !important;
+}
+
+
+/* ==========================================================
+   INPUTS
+   ========================================================== */
+
+.stNumberInput input,
+.stSelectbox select {
+    border-radius: 9px !important;
+}
+
+div[data-baseweb="select"] > div {
+    border-radius: 9px !important;
+}
+
+
+/* ==========================================================
+   SLIDER
+   ========================================================== */
+
+.stSlider {
+    padding-top: 5px;
+}
+
+
+/* ==========================================================
+   FOOTER
+   ========================================================== */
+
+.footer {
+    text-align: center;
+    color: #788681;
+    font-size: 11px;
+    padding: 22px;
+}
+
+
+/* ==========================================================
+   MOBILE
+   ========================================================== */
+
+@media (max-width: 900px) {
 
     .top-header {
-        background: white;
-        border: 1px solid #e3e9e5;
-        border-radius: 16px;
-        min-height: 78px;
-        padding: 15px 22px;
-        box-shadow: 0 3px 15px rgba(18, 50, 38, 0.045);
-        margin-bottom: 18px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
     }
 
-    .brand-title {
-        color: #073c32;
-        font-size: 28px;
-        font-weight: 800;
-        line-height: 1;
-        margin-top: 2px;
+    .top-right {
+        flex-wrap: wrap;
     }
 
-    .brand-subtitle {
-        color: #6c7772;
-        font-size: 12px;
-        margin-top: 5px;
-    }
+}
 
-    .header-online {
-        border: 1px solid #b7ddc2;
-        background: #f4fcf6;
-        color: #16743c;
-        border-radius: 9px;
-        padding: 10px 15px;
-        font-size: 12px;
-        font-weight: 700;
-        text-align: center;
-    }
-
-    .header-offline {
-        border: 1px solid #f0c5c5;
-        background: #fff6f6;
-        color: #c13c3c;
-        border-radius: 9px;
-        padding: 10px 15px;
-        font-size: 12px;
-        font-weight: 700;
-        text-align: center;
-    }
-
-    .header-date {
-        color: #66736c;
-        font-size: 11px;
-        padding-top: 12px;
-        text-align: right;
-    }
-
-
-    /* ========================================================
-       HERO
-       ======================================================== */
-
-    .hero {
-        background: linear-gradient(
-            90deg,
-            #eef7ef 0%,
-            #f8fbf8 60%,
-            #edf7ef 100%
-        );
-        border: 1px solid #e0eae2;
-        border-radius: 14px;
-        padding: 19px 22px;
-        margin-bottom: 17px;
-    }
-
-    .hero-title {
-        color: #092f29;
-        font-size: 27px;
-        font-weight: 800;
-        line-height: 1.15;
-    }
-
-    .hero-title-green {
-        color: #16784c;
-    }
-
-    .hero-subtitle {
-        color: #69756f;
-        font-size: 12px;
-        margin-top: 6px;
-    }
-
-    .hero-badge {
-        text-align: right;
-        color: #27764d;
-        font-size: 11px;
-        font-weight: 700;
-        padding-top: 15px;
-    }
-
-
-    /* ========================================================
-       SECTION TITLES
-       ======================================================== */
-
-    .section-heading {
-        color: #08382f;
-        font-size: 17px;
-        font-weight: 800;
-        margin-top: 12px;
-        margin-bottom: 10px;
-    }
-
-
-    /* ========================================================
-       KPI CARDS
-       ======================================================== */
-
-    .kpi-card {
-        background: white;
-        border: 1px solid #e0e8e2;
-        border-radius: 13px;
-        padding: 17px;
-        min-height: 125px;
-        box-shadow: 0 3px 14px rgba(20, 54, 39, 0.04);
-    }
-
-    .kpi-label {
-        color: #6c7772;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-    }
-
-    .kpi-value {
-        color: #073c32;
-        font-size: 23px;
-        font-weight: 800;
-        margin-top: 7px;
-    }
-
-    .kpi-value-blue {
-        color: #0874c9;
-    }
-
-    .kpi-value-purple {
-        color: #7540bf;
-    }
-
-    .kpi-description {
-        color: #89928e;
-        font-size: 10px;
-        margin-top: 5px;
-    }
-
-    .kpi-icon {
-        font-size: 23px;
-        float: right;
-    }
-
-    .kpi-green {
-        border-top: 3px solid #5bb878;
-    }
-
-    .kpi-blue {
-        border-top: 3px solid #54a9ec;
-    }
-
-    .kpi-purple {
-        border-top: 3px solid #9c72df;
-    }
-
-
-    /* ========================================================
-       MAIN CARDS
-       ======================================================== */
-
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        background: white;
-        border: 1px solid #e0e8e2;
-        border-radius: 14px;
-        box-shadow: 0 3px 15px rgba(20, 54, 39, 0.045);
-    }
-
-
-    /* ========================================================
-       CARD HEADERS
-       ======================================================== */
-
-    .card-title {
-        color: #103d34;
-        font-size: 17px;
-        font-weight: 800;
-        margin-bottom: 5px;
-    }
-
-    .card-description {
-        color: #6d7973;
-        font-size: 11px;
-        line-height: 1.5;
-    }
-
-    .live-badge {
-        background: #e9f8ec;
-        border: 1px solid #cce9d2;
-        color: #208247;
-        border-radius: 7px;
-        padding: 7px 12px;
-        font-size: 10px;
-        font-weight: 800;
-        text-align: center;
-    }
-
-
-    /* ========================================================
-       IMAGE
-       ======================================================== */
-
-    .plant-image-container {
-        border-radius: 11px;
-        overflow: hidden;
-        margin-top: 8px;
-    }
-
-    [data-testid="stImage"] img {
-        border-radius: 10px;
-    }
-
-    .image-info {
-        background: #eef7ff;
-        border: 1px solid #d8eaf8;
-        border-radius: 9px;
-        padding: 10px 12px;
-        color: #27628a;
-        font-size: 10px;
-        margin-top: 9px;
-    }
-
-
-    /* ========================================================
-       INPUTS
-       ======================================================== */
-
-    .stNumberInput label,
-    .stSlider label {
-        color: #173d35 !important;
-        font-size: 11px !important;
-        font-weight: 700 !important;
-    }
-
-    [data-testid="stNumberInput"] input {
-        font-weight: 700;
-        color: #153a32;
-    }
-
-
-    /* ========================================================
-       BUTTONS
-       ======================================================== */
-
-    .stButton > button {
-        border-radius: 9px;
-        min-height: 42px;
-        font-size: 11px;
-        font-weight: 700;
-        border: 1px solid #d7dfda;
-        background: white;
-        color: #193b34;
-    }
-
-    .stButton > button:hover {
-        border-color: #288153;
-        color: #17653e;
-        background: #f5faf6;
-    }
-
-    .stButton > button[kind="primary"] {
-        background: #19834f;
-        border-color: #19834f;
-        color: white;
-    }
-
-    .stButton > button[kind="primary"]:hover {
-        background: #126b40;
-        border-color: #126b40;
-        color: white;
-    }
-
-
-    /* ========================================================
-       INFO BOX
-       ======================================================== */
-
-    .spray-info {
-        background: #f0faf1;
-        border: 1px solid #d6ecd9;
-        border-radius: 9px;
-        padding: 12px;
-        color: #24643d;
-        font-size: 10px;
-        line-height: 1.5;
-        margin-top: 10px;
-    }
-
-
-    /* ========================================================
-       STATUS
-       ======================================================== */
-
-    .status-box {
-        border-radius: 10px;
-        padding: 17px;
-        background: #f0fbf2;
-        border: 1px solid #cfead3;
-    }
-
-    .status-title {
-        color: #17713b;
-        font-size: 18px;
-        font-weight: 800;
-    }
-
-    .status-description {
-        color: #5c6962;
-        font-size: 11px;
-        margin-top: 5px;
-    }
-
-    .status-stat-label {
-        color: #68736e;
-        font-size: 10px;
-    }
-
-    .status-stat-value {
-        color: #13733b;
-        font-size: 13px;
-        font-weight: 800;
-    }
-
-    .status-divider {
-        border-top: 1px solid #dce8de;
-        margin: 13px 0;
-    }
-
-
-    /* ========================================================
-       SYSTEM HEALTH
-       ======================================================== */
-
-    .health-circle {
-        border: 6px solid #26904e;
-        width: 68px;
-        height: 68px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #17713b;
-        font-size: 15px;
-        font-weight: 800;
-    }
-
-
-    /* ========================================================
-       WORKFLOW
-       ======================================================== */
-
-    .workflow-card {
-        background: white;
-        border: 1px solid #e0e8e2;
-        border-radius: 14px;
-        padding: 18px;
-        box-shadow: 0 3px 15px rgba(20,54,39,0.04);
-    }
-
-    .workflow-number {
-        background: #edf8ee;
-        color: #27824a;
-        border-radius: 50%;
-        width: 34px;
-        height: 34px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: 800;
-    }
-
-    .workflow-title {
-        color: #173b34;
-        font-size: 14px;
-        font-weight: 800;
-    }
-
-    .workflow-description {
-        color: #78837e;
-        font-size: 10px;
-        line-height: 1.45;
-    }
-
-
-    /* ========================================================
-       ROVER CONTROL
-       ======================================================== */
-
-    .rover-status {
-        background: #f1faf3;
-        border: 1px solid #d4ead8;
-        border-radius: 9px;
-        padding: 10px;
-        color: #1e7841;
-        font-size: 11px;
-        font-weight: 700;
-    }
-
-
-    /* ========================================================
-       FOOTER
-       ======================================================== */
-
-    .footer {
-        text-align: center;
-        color: #7d8782;
-        font-size: 10px;
-        padding-top: 8px;
-    }
-
-
-    /* ========================================================
-       MOBILE
-       ======================================================== */
-
-    @media (max-width: 900px) {
-
-        .main .block-container {
-            padding-left: 1rem;
-            padding-right: 1rem;
-        }
-
-        .hero-title {
-            font-size: 22px;
-        }
-
-        .brand-title {
-            font-size: 23px;
-        }
-
-    }
-
-    </style>
-    """,
+</style>
+""",
     unsafe_allow_html=True
 )
 
 
 # ============================================================
-# HELPER FUNCTIONS
+# BACKEND FUNCTIONS
 # ============================================================
 
 def get_state():
@@ -717,36 +836,20 @@ def get_latest_image():
     return None
 
 
-def get_error_message(response):
-
-    try:
-
-        data = response.json()
-
-        return data.get(
-            "detail",
-            response.text
-        )
-
-    except Exception:
-
-        return response.text
-
-
 # ============================================================
-# GET STATE
+# INITIAL STATE
 # ============================================================
 
 state = get_state()
 
 if state is None:
 
-    raspberry_pi = {}
+    raspberry = {}
     esp32 = {}
 
 else:
 
-    raspberry_pi = state.get(
+    raspberry = state.get(
         "raspberry_pi",
         {}
     )
@@ -757,17 +860,17 @@ else:
     )
 
 
-spray_status = raspberry_pi.get(
+spray_status = raspberry.get(
     "spray_status",
-    "Unknown"
+    "READY"
 )
 
-sprayed_amount = raspberry_pi.get(
+sprayed_amount = raspberry.get(
     "sprayed_amount",
     0.0
 )
 
-image_available = raspberry_pi.get(
+image_available = raspberry.get(
     "image_available",
     False
 )
@@ -779,7 +882,7 @@ esp32_online = esp32.get(
 
 rover_status = esp32.get(
     "rover_status",
-    "UNKNOWN"
+    "STOPPED"
 )
 
 backend_online = state is not None
@@ -791,232 +894,192 @@ backend_online = state is not None
 
 with st.sidebar:
 
-    st.markdown(
-        """
+    html("""
+    <div class="sidebar-brand">
+
         <div class="sidebar-logo">
-
-            <div class="sidebar-logo-icon">
-                🌱
-            </div>
-
-            <div class="sidebar-logo-text">
-                CropIQ
-            </div>
-
-            <div class="sidebar-version">
-                v2.1.0
-            </div>
-
+            🌿
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+
+        <div class="sidebar-title">
+            CropIQ
+        </div>
+
+        <div class="sidebar-tagline">
+            Precision Farming<br>
+            for a Greener Tomorrow
+        </div>
+
+    </div>
+    """)
+
 
     st.markdown(
-        '<div class="sidebar-section">MAIN MENU</div>',
+        '<div class="menu-label">MAIN MENU</div>',
         unsafe_allow_html=True
     )
 
-    st.button(
-        "⌂   Dashboard",
-        use_container_width=True
-    )
 
-    st.button(
-        "♧   Monitoring",
-        use_container_width=True
-    )
+    # Dashboard
 
-    st.button(
-        "🚿   Spray Control",
-        use_container_width=True
-    )
+    html("""
+    <div class="sidebar-menu-item active">
+        <span class="sidebar-menu-icon">⌂</span>
+        Dashboard
+    </div>
+    """)
 
-    st.button(
-        "🚜   Rover Control",
-        use_container_width=True
-    )
 
-    st.button(
-        "◷   History",
-        use_container_width=True
-    )
+    # Live View
 
-    st.button(
-        "▥   Analytics",
-        use_container_width=True
-    )
+    html("""
+    <div class="sidebar-menu-item">
+        <span class="sidebar-menu-icon">📷</span>
+        Live View
+    </div>
+    """)
 
-    st.button(
-        "♢   Alerts",
-        use_container_width=True
-    )
 
-    st.button(
-        "⚙   Settings",
-        use_container_width=True
-    )
+    # Rover
 
-    st.markdown(
-        "<br>",
-        unsafe_allow_html=True
-    )
+    html("""
+    <div class="sidebar-menu-item">
+        <span class="sidebar-menu-icon">🎮</span>
+        Rover Control
+    </div>
+    """)
 
-    if backend_online:
 
-        st.markdown(
-            """
-            <div class="sidebar-online">
+    # Sprayer
 
-                <div class="sidebar-online-title">
-                    📡 Raspberry Pi
-                </div>
+    html("""
+    <div class="sidebar-menu-item">
+        <span class="sidebar-menu-icon">💦</span>
+        Sprayer Control
+    </div>
+    """)
 
-                <div class="sidebar-online-status">
-                    ● ONLINE
-                </div>
 
-                <div class="sidebar-online-detail">
-                    System connection
-                </div>
+    # AI
 
-                <div class="sidebar-online-value">
-                    Active
-                </div>
+    html("""
+    <div class="sidebar-menu-item">
+        <span class="sidebar-menu-icon">🌿</span>
+        AI Detection
+    </div>
+    """)
 
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
 
-    else:
+    # Settings
 
-        st.markdown(
-            """
-            <div class="sidebar-online">
+    html("""
+    <div class="sidebar-menu-item">
+        <span class="sidebar-menu-icon">⚙️</span>
+        Settings
+    </div>
+    """)
 
-                <div class="sidebar-online-title">
-                    📡 Raspberry Pi
-                </div>
 
-                <div style="
-                    color:#ff9a9a;
-                    font-size:17px;
-                    font-weight:800;
-                    margin-top:3px;
-                ">
-                    ● OFFLINE
-                </div>
+    # Hardware status
 
-                <div class="sidebar-online-detail">
-                    System connection
-                </div>
+    pi_status = "ONLINE" if backend_online else "OFFLINE"
 
-                <div class="sidebar-online-value">
-                    Unavailable
-                </div>
+    html(f"""
+    <div class="sidebar-hardware">
 
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        <div style="font-size:22px;">
+            📡
+        </div>
+
+        <div class="hardware-title">
+            Raspberry Pi
+        </div>
+
+        <div class="hardware-online">
+            ● {pi_status}
+        </div>
+
+        <div class="hardware-uptime">
+            Uptime<br>
+            <strong>--:--:--</strong>
+        </div>
+
+    </div>
+    """)
 
 
 # ============================================================
 # TOP HEADER
 # ============================================================
 
-header_left, header_status, header_date, header_bell = st.columns(
-    [4.5, 1.3, 1.6, 0.4],
-    vertical_alignment="center"
-)
+now = datetime.now()
 
+formatted_date = now.strftime("%a, %d %b %Y")
+formatted_time = now.strftime("%I:%M:%S %p")
 
-with header_left:
+html(f"""
+<div class="top-header">
 
-    st.markdown(
-        """
-        <div class="brand-title">
-            🌱 CropIQ
+    <div class="brand-left">
+
+        <div class="brand-icon">
+            🌱
         </div>
 
-        <div class="brand-subtitle">
-            Precision Agriculture Intelligence Platform
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
-with header_status:
-
-    if backend_online:
-
-        st.markdown(
-            """
-            <div class="header-online">
-                🟢 SYSTEM ONLINE
+        <div>
+            <div class="brand-name">
+                CropIQ
             </div>
-            """,
-            unsafe_allow_html=True
-        )
 
-    else:
-
-        st.markdown(
-            """
-            <div class="header-offline">
-                🔴 SYSTEM OFFLINE
+            <div class="brand-subtitle">
+                Precision Agriculture Intelligence Platform
             </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-with header_date:
-
-    now = datetime.now()
-
-    st.markdown(
-        f"""
-        <div class="header-date">
-            {now.strftime("%b %d, %Y")}<br>
-            {now.strftime("%I:%M:%S %p")}
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
-with header_bell:
-
-    st.markdown(
-        "<div style='font-size:22px;text-align:center;'>♧</div>",
-        unsafe_allow_html=True
-    )
-
-
-# ============================================================
-# HERO
-# ============================================================
-
-st.markdown(
-    """
-    <div class="hero">
-
-        <div class="hero-title">
-            Precision <span class="hero-title-green">Spraying Control</span>
-        </div>
-
-        <div class="hero-subtitle">
-            Monitor the plant, capture images, configure spray dosage,
-            and control the precision spraying system.
         </div>
 
     </div>
-    """,
-    unsafe_allow_html=True
-)
+
+
+    <div class="top-right">
+
+        <div class="system-online">
+
+            <span class="green-dot"></span>
+
+            SYSTEM {"ONLINE" if backend_online else "OFFLINE"}
+
+        </div>
+
+        <div class="datetime">
+
+            {formatted_date}
+            &nbsp; • &nbsp;
+            {formatted_time}
+
+        </div>
+
+        <div style="font-size:22px;">
+            🔔
+        </div>
+
+    </div>
+
+</div>
+""")
+
+
+# ============================================================
+# PAGE TITLE
+# ============================================================
+
+html("""
+<div class="page-title">
+    Welcome to CropIQ
+</div>
+
+<div class="page-description">
+    AI-Powered Crop Monitoring & Precision Spraying
+</div>
+""")
 
 
 # ============================================================
@@ -1024,790 +1087,469 @@ st.markdown(
 # ============================================================
 
 st.markdown(
-    '<div class="section-heading">System Overview</div>',
+    '<div class="section-title">System Overview</div>',
     unsafe_allow_html=True
 )
 
-
-kpi1, kpi2, kpi3, kpi4 = st.columns(
-    4,
-    gap="medium"
-)
+kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 
 
-# ------------------------------------------------------------
 # KPI 1
-# ------------------------------------------------------------
 
 with kpi1:
 
-    status_display = spray_status.upper()
+    html(f"""
+    <div class="kpi-card">
 
-    if status_display == "SPRAYING...":
-        status_display = "SPRAYING"
-
-    st.markdown(
-        f"""
-        <div class="kpi-card kpi-green">
-
-            <div class="kpi-icon">
-                🚿
-            </div>
-
-            <div class="kpi-label">
-                SPRAYER STATUS
-            </div>
-
-            <div class="kpi-value">
-                {status_display}
-            </div>
-
-            <div class="kpi-description">
-                Current operation
-            </div>
-
+        <div class="kpi-icon">
+            🚿
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+
+        <div class="kpi-label">
+            SPRAYER STATUS
+        </div>
+
+        <div class="kpi-value">
+            {str(spray_status).upper()}
+        </div>
+
+        <div class="kpi-description">
+            Current operation
+        </div>
+
+    </div>
+    """)
 
 
-# ------------------------------------------------------------
 # KPI 2
-# ------------------------------------------------------------
 
 with kpi2:
 
-    st.markdown(
-        f"""
-        <div class="kpi-card kpi-blue">
+    html(f"""
+    <div class="kpi-card">
 
-            <div class="kpi-icon">
-                💧
-            </div>
-
-            <div class="kpi-label">
-                LAST DISPENSED
-            </div>
-
-            <div class="kpi-value kpi-value-blue">
-                {sprayed_amount:.1f} ml
-            </div>
-
-            <div class="kpi-description">
-                Latest spray quantity
-            </div>
-
+        <div class="kpi-icon">
+            💧
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+
+        <div class="kpi-label">
+            LAST DISPENSED
+        </div>
+
+        <div class="kpi-value">
+            {sprayed_amount:.1f} ml
+        </div>
+
+        <div class="kpi-description">
+            Latest spray quantity
+        </div>
+
+    </div>
+    """)
 
 
-# ------------------------------------------------------------
 # KPI 3
-# ------------------------------------------------------------
 
 with kpi3:
 
-    camera_display = "READY" if backend_online else "OFFLINE"
+    camera_status = "READY" if image_available else "READY"
 
-    st.markdown(
-        f"""
-        <div class="kpi-card kpi-green">
+    html(f"""
+    <div class="kpi-card">
 
-            <div class="kpi-icon">
-                📷
-            </div>
-
-            <div class="kpi-label">
-                CAMERA
-            </div>
-
-            <div class="kpi-value">
-                {camera_display}
-            </div>
-
-            <div class="kpi-description">
-                Plant imaging system
-            </div>
-
+        <div class="kpi-icon">
+            📷
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+
+        <div class="kpi-label">
+            CAMERA
+        </div>
+
+        <div class="kpi-value">
+            {camera_status}
+        </div>
+
+        <div class="kpi-description">
+            Plant imaging system
+        </div>
+
+    </div>
+    """)
 
 
-# ------------------------------------------------------------
 # KPI 4
-# ------------------------------------------------------------
 
 with kpi4:
 
-    pi_display = "ONLINE" if backend_online else "OFFLINE"
+    rover_online_text = (
+        "ONLINE"
+        if esp32_online
+        else "OFFLINE"
+    )
 
-    st.markdown(
-        f"""
-        <div class="kpi-card kpi-purple">
+    html(f"""
+    <div class="kpi-card">
 
-            <div class="kpi-icon">
-                🧠
-            </div>
-
-            <div class="kpi-label">
-                RASPBERRY PI
-            </div>
-
-            <div class="kpi-value kpi-value-purple">
-                {pi_display}
-            </div>
-
-            <div class="kpi-description">
-                Hardware connection
-            </div>
-
+        <div class="kpi-icon">
+            🎛️
         </div>
-        """,
-        unsafe_allow_html=True
-    )
 
+        <div class="kpi-label">
+            ESP32 ROVER
+        </div>
 
-st.write("")
+        <div class="kpi-value">
+            {rover_online_text}
+        </div>
+
+        <div class="kpi-description">
+            Rover hardware connection
+        </div>
+
+    </div>
+    """)
 
 
 # ============================================================
-# MAIN MONITORING AREA
+# MAIN CONTROL AREA
 # ============================================================
 
-plant_col, spray_col, status_col = st.columns(
-    [2.35, 1.05, 1.05],
+st.markdown(
+    '<div class="section-title">Plant Monitoring & Control</div>',
+    unsafe_allow_html=True
+)
+
+
+camera_col, rover_col, spray_col = st.columns(
+    [1.35, 1.0, 1.0],
     gap="medium"
 )
 
 
 # ============================================================
-# PLANT MONITORING
+# CAMERA PANEL
 # ============================================================
 
-with plant_col:
+with camera_col:
 
-    with st.container(border=True):
+    html("""
+    <div class="panel">
 
-        title_col, live_col = st.columns(
-            [4, 1],
-            vertical_alignment="center"
-        )
-
-        with title_col:
-
-            st.markdown(
-                '<div class="card-title">🌿 Plant Monitoring</div>',
-                unsafe_allow_html=True
-            )
-
-        with live_col:
-
-            st.markdown(
-                """
-                <div class="live-badge">
-                    🟢 LIVE
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-
-        @st.fragment(run_every="2s")
-        def plant_monitor():
-
-            image = get_latest_image()
-
-            if image is not None:
-
-                st.image(
-                    image,
-                    use_container_width=True
-                )
-
-                st.markdown(
-                    """
-                    <div class="image-info">
-                        📷 <b>Live image from Raspberry Pi camera.</b><br>
-                        Capture a new image to update the monitoring view.
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-            else:
-
-                st.info(
-                    "📷 No plant image available yet. "
-                    "Capture an image to begin monitoring."
-                )
-
-
-        plant_monitor()
-
-
-# ============================================================
-# PRECISION SPRAY
-# ============================================================
-
-with spray_col:
-
-    with st.container(border=True):
-
-        st.markdown(
-            '<div class="card-title">🚿 Precision Spray</div>',
-            unsafe_allow_html=True
-        )
-
-        st.markdown(
-            """
-            <div class="card-description">
-                Configure the required spray quantity
-                and activate the precision sprayer.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.divider()
-
-
-        dosage = st.number_input(
-            "Spray dosage (ml)",
-            min_value=1.0,
-            max_value=500.0,
-            value=25.0,
-            step=1.0,
-            format="%.0f"
-        )
-
-
-        st.caption(
-            "Allowed range: 1 – 500 ml"
-        )
-
-
-        if st.button(
-            "📷  CAPTURE PLANT IMAGE",
-            use_container_width=True
-        ):
-
-            response = send_capture()
-
-            if response is not None:
-
-                if response.status_code == 200:
-
-                    st.success(
-                        "Capture command sent!"
-                    )
-
-                else:
-
-                    st.error(
-                        f"Capture failed: "
-                        f"{get_error_message(response)}"
-                    )
-
-
-        if st.button(
-            "🚿  START PRECISION SPRAY",
-            type="primary",
-            use_container_width=True
-        ):
-
-            response = send_spray(dosage)
-
-            if response is not None:
-
-                if response.status_code == 200:
-
-                    st.success(
-                        f"Spray command sent: "
-                        f"{dosage:.0f} ml"
-                    )
-
-                else:
-
-                    st.error(
-                        f"Spray failed: "
-                        f"{get_error_message(response)}"
-                    )
-
-
-        st.markdown(
-            """
-            <div class="spray-info">
-                💡 The selected dosage will be sent
-                to the Raspberry Pi sprayer.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-# ============================================================
-# LIVE SPRAY STATUS
-# ============================================================
-
-with status_col:
-
-    with st.container(border=True):
-
-        st.markdown(
-            '<div class="card-title">〽 Live Spray Status</div>',
-            unsafe_allow_html=True
-        )
-
-
-        @st.fragment(run_every="2s")
-        def live_status():
-
-            current_state = get_state()
-
-            if current_state is None:
-
-                st.markdown(
-                    """
-                    <div class="status-box"
-                         style="background:#fff5f5;border-color:#f0cccc;">
-
-                        <div class="status-title"
-                             style="color:#c03939;">
-                            🔴 OFFLINE
-                        </div>
-
-                        <div class="status-description">
-                            Unable to communicate with the backend.
-                        </div>
-
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-                return
-
-
-            raspberry = current_state.get(
-                "raspberry_pi",
-                {}
-            )
-
-            status = raspberry.get(
-                "spray_status",
-                "Ready"
-            )
-
-            amount = raspberry.get(
-                "sprayed_amount",
-                0.0
-            )
-
-
-            if status == "Ready":
-
-                title = "🟢 READY"
-
-                description = (
-                    "System is ready for the next "
-                    "precision spraying operation."
-                )
-
-            elif status == "Spraying...":
-
-                title = "🟠 SPRAYING"
-
-                description = (
-                    "Precision spraying operation "
-                    "is currently in progress."
-                )
-
-            elif status == "Completed":
-
-                title = "🔵 COMPLETED"
-
-                description = (
-                    "The precision spraying operation "
-                    "has been completed."
-                )
-
-            else:
-
-                title = f"● {status.upper()}"
-
-                description = (
-                    "Current sprayer system status."
-                )
-
-
-            st.markdown(
-                f"""
-                <div class="status-box">
-
-                    <div class="status-title">
-                        {title}
-                    </div>
-
-                    <div class="status-description">
-                        {description}
-                    </div>
-
-                    <div class="status-divider"></div>
-
-                    <div class="status-stat-label">
-                        Total Dispensed
-                    </div>
-
-                    <div class="status-stat-value">
-                        {amount:.1f} ml
-                    </div>
-
-                    <div style="height:9px;"></div>
-
-                    <div class="status-stat-label">
-                        Last Updated
-                    </div>
-
-                    <div class="status-stat-value"
-                         style="color:#36443d;">
-                        {datetime.now().strftime("%I:%M:%S %p")}
-                    </div>
-
-                    <div class="status-divider"></div>
-
-                    <div style="
-                        display:flex;
-                        align-items:center;
-                        gap:12px;
-                    ">
-
-                        <div class="health-circle">
-                            100%
-                        </div>
-
-                        <div>
-                            <div style="
-                                color:#68736e;
-                                font-size:10px;
-                            ">
-                                All Systems
-                            </div>
-
-                            <div style="
-                                color:#14743b;
-                                font-size:11px;
-                                font-weight:800;
-                            ">
-                                Operational
-                            </div>
-                        </div>
-
-                    </div>
-
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-
-        live_status()
-
-
-# ============================================================
-# WORKFLOW
-# ============================================================
-
-st.write("")
-
-st.markdown(
-    '<div class="section-heading">CropIQ Workflow</div>',
-    unsafe_allow_html=True
-)
-
-
-workflow1, workflow2, workflow3, workflow4 = st.columns(
-    4,
-    gap="medium"
-)
-
-
-# ------------------------------------------------------------
-# WORKFLOW 1
-# ------------------------------------------------------------
-
-with workflow1:
-
-    with st.container(border=True):
-
-        st.markdown(
-            """
-            <div class="workflow-number">
-                01
-            </div>
-
-            <br>
-
-            <div class="workflow-title">
-                📷 Capture
-            </div>
-
-            <div class="workflow-description">
-                Capture the latest plant image
-                using the Raspberry Pi camera.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-# ------------------------------------------------------------
-# WORKFLOW 2
-# ------------------------------------------------------------
-
-with workflow2:
-
-    with st.container(border=True):
-
-        st.markdown(
-            """
-            <div class="workflow-number">
-                02
-            </div>
-
-            <br>
-
-            <div class="workflow-title">
-                🌿 Analyze
-            </div>
-
-            <div class="workflow-description">
-                Analyze the captured plant image
-                to identify the target.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-# ------------------------------------------------------------
-# WORKFLOW 3
-# ------------------------------------------------------------
-
-with workflow3:
-
-    with st.container(border=True):
-
-        st.markdown(
-            """
-            <div class="workflow-number">
-                03
-            </div>
-
-            <br>
-
-            <div class="workflow-title">
-                🎯 Target
-            </div>
-
-            <div class="workflow-description">
-                Determine the treatment area
-                and required spray quantity.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-# ------------------------------------------------------------
-# WORKFLOW 4
-# ------------------------------------------------------------
-
-with workflow4:
-
-    with st.container(border=True):
-
-        st.markdown(
-            """
-            <div class="workflow-number">
-                04
-            </div>
-
-            <br>
-
-            <div class="workflow-title">
-                🚿 Spray
-            </div>
-
-            <div class="workflow-description">
-                Apply the selected spray dosage
-                to the target.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-# ============================================================
-# ROVER CONTROL
-# ============================================================
-
-st.write("")
-
-st.markdown(
-    '<div class="section-heading">🚜 Rover Control</div>',
-    unsafe_allow_html=True
-)
-
-
-with st.container(border=True):
-
-    rover_head1, rover_head2 = st.columns(
-        [4, 1],
-        vertical_alignment="center"
-    )
-
-    with rover_head1:
-
-        st.markdown(
-            """
-            <div class="card-title">
-                Rover Movement
-            </div>
-
-            <div class="card-description">
-                Control rover movement using the ESP32.
-                Adjust speed and use the directional controls.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with rover_head2:
-
-        if esp32_online:
-
-            st.markdown(
-                """
-                <div class="rover-status">
-                    🟢 ESP32 ONLINE
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        else:
-
-            st.markdown(
-                """
-                <div class="rover-status"
-                     style="
-                     background:#fff5f5;
-                     border-color:#efcccc;
-                     color:#bd3838;
-                     ">
-                    🔴 ESP32 OFFLINE
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-
-    st.divider()
-
-
-    rover_speed = st.slider(
-        "Rover Speed",
-        min_value=0,
-        max_value=100,
-        value=50,
-        step=5
-    )
-
-
-    st.markdown(
-        """
         <div style="
-            text-align:center;
-            color:#6d7973;
-            font-size:11px;
-            margin-bottom:7px;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:12px;
         ">
-            Directional Controls
+
+            <div class="panel-title">
+                📷 Live Camera Feed
+            </div>
+
+            <div class="live-badge">
+                <span class="live-dot"></span>
+                LIVE
+            </div>
+
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+
+    </div>
+    """)
 
 
-    # --------------------------------------------------------
-    # FORWARD
-    # --------------------------------------------------------
+    image = get_latest_image()
 
-    r1, r2, r3 = st.columns(3)
+    if image is not None:
 
-    with r2:
+        st.image(
+            image,
+            use_container_width=True
+        )
+
+    else:
+
+        html("""
+        <div class="camera-container">
+
+            <div class="camera-placeholder">
+
+                <div class="camera-placeholder-icon">
+                    📷
+                </div>
+
+                <div class="camera-placeholder-text">
+                    Waiting for Raspberry Pi camera...
+                </div>
+
+                <div style="
+                    color:#9bb4ac;
+                    font-size:11px;
+                    margin-top:6px;
+                ">
+                    Capture an image to begin monitoring
+                </div>
+
+            </div>
+
+        </div>
+        """)
+
+
+    st.write("")
+
+
+    if st.button(
+        "📸  CAPTURE PLANT IMAGE",
+        use_container_width=True
+    ):
+
+        response = send_capture()
+
+        if response is not None:
+
+            if response.status_code == 200:
+
+                st.success(
+                    "Capture command sent to Raspberry Pi."
+                )
+
+            elif response.status_code == 409:
+
+                st.warning(
+                    "Another command is already pending."
+                )
+
+            else:
+
+                st.error(
+                    response.text
+                )
+
+
+# ============================================================
+# ROVER CONTROL PANEL
+# ============================================================
+
+with rover_col:
+
+    html("""
+    <div class="panel">
+
+        <div class="panel-title">
+            🎮 Rover Control
+        </div>
+
+    </div>
+    """)
+
+
+    # Mode
+
+    mode1, mode2 = st.columns(2)
+
+    with mode1:
+
+        html("""
+        <div class="mode-active">
+            Manual Mode
+        </div>
+        """)
+
+    with mode2:
+
+        html("""
+        <div class="mode-inactive">
+            ⚪ Autonomous
+        </div>
+        """)
+
+
+    st.write("")
+
+
+    # Direction controls
+
+    c1, c2, c3 = st.columns(3)
+
+    with c2:
 
         if st.button(
-            "⬆️ FORWARD",
+            "▲",
+            key="forward",
             use_container_width=True
         ):
 
-            response = send_rover_command(
+            send_rover_command(
                 "F",
-                rover_speed
+                st.session_state.get(
+                    "speed",
+                    50
+                )
             )
 
-            if response is not None:
 
-                if response.status_code != 200:
+    c1, c2, c3 = st.columns(3)
 
-                    st.error(
-                        get_error_message(response)
-                    )
-
-
-    # --------------------------------------------------------
-    # LEFT STOP RIGHT
-    # --------------------------------------------------------
-
-    r1, r2, r3 = st.columns(3)
-
-    with r1:
+    with c1:
 
         if st.button(
-            "⬅️ LEFT",
+            "◀",
+            key="left",
             use_container_width=True
         ):
 
-            response = send_rover_command(
+            send_rover_command(
                 "L",
-                rover_speed
+                st.session_state.get(
+                    "speed",
+                    50
+                )
             )
 
-            if response is not None:
-
-                if response.status_code != 200:
-
-                    st.error(
-                        get_error_message(response)
-                    )
-
-
-    with r2:
+    with c2:
 
         if st.button(
-            "⛔ STOP",
+            "■",
+            key="stop",
             use_container_width=True
         ):
 
             response = send_rover_command(
                 "S",
-                rover_speed
+                st.session_state.get(
+                    "speed",
+                    50
+                )
+            )
+
+            if response is not None:
+                st.toast("Rover stopped.")
+
+
+    with c3:
+
+        if st.button(
+            "▶",
+            key="right",
+            use_container_width=True
+        ):
+
+            send_rover_command(
+                "R",
+                st.session_state.get(
+                    "speed",
+                    50
+                )
+            )
+
+
+    c1, c2, c3 = st.columns(3)
+
+    with c2:
+
+        if st.button(
+            "▼",
+            key="backward",
+            use_container_width=True
+        ):
+
+            send_rover_command(
+                "B",
+                st.session_state.get(
+                    "speed",
+                    50
+                )
+            )
+
+
+    # Speed
+
+    speed = st.slider(
+        "Speed",
+        min_value=0,
+        max_value=100,
+        value=50,
+        step=5,
+        key="speed"
+    )
+
+    st.caption(
+        f"Rover status: {rover_status}"
+    )
+
+
+# ============================================================
+# SPRAYER CONTROL PANEL
+# ============================================================
+
+with spray_col:
+
+    html("""
+    <div class="panel">
+
+        <div class="panel-title">
+            💦 Sprayer Control
+        </div>
+
+    </div>
+    """)
+
+
+    spray_on = (
+        str(spray_status).lower()
+        in [
+            "spraying",
+            "spraying...",
+            "on"
+        ]
+    )
+
+
+    html(f"""
+    <div class="sprayer-status">
+
+        <div style="
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+        ">
+
+            <div class="sprayer-status-label">
+                Sprayer Status
+            </div>
+
+            <div class="
+                {'status-on' if spray_on else 'status-off'}
+            ">
+
+                {'🟢 ON' if spray_on else '⚪ OFF'}
+
+            </div>
+
+        </div>
+
+    </div>
+    """)
+
+
+    spray1, spray2 = st.columns(2)
+
+
+    with spray1:
+
+        if st.button(
+            "▶ START SPRAYING",
+            type="primary",
+            use_container_width=True
+        ):
+
+            amount = st.session_state.get(
+                "spray_amount",
+                25.0
+            )
+
+            response = send_spray(
+                amount
             )
 
             if response is not None:
@@ -1815,145 +1557,294 @@ with st.container(border=True):
                 if response.status_code == 200:
 
                     st.success(
-                        "Rover stopped."
+                        f"Spraying {amount:.0f} ml"
                     )
 
                 else:
 
                     st.error(
-                        get_error_message(response)
+                        response.text
                     )
 
 
-    with r3:
+    with spray2:
 
         if st.button(
-            "➡️ RIGHT",
+            "■ STOP SPRAYING",
             use_container_width=True
         ):
 
+            # Stop through rover endpoint if supported
             response = send_rover_command(
-                "R",
-                rover_speed
+                "S",
+                0
             )
 
-            if response is not None:
-
-                if response.status_code != 200:
-
-                    st.error(
-                        get_error_message(response)
-                    )
+            st.info(
+                "Stop command sent."
+            )
 
 
-    # --------------------------------------------------------
-    # BACKWARD
-    # --------------------------------------------------------
+    st.markdown(
+        "<hr>",
+        unsafe_allow_html=True
+    )
 
-    r1, r2, r3 = st.columns(3)
 
-    with r2:
+    st.markdown(
+        "**Spray Settings**"
+    )
 
-        if st.button(
-            "⬇️ BACKWARD",
+
+    zone = st.selectbox(
+        "Zone Selection",
+        [
+            "Zone 1",
+            "Zone 2",
+            "Zone 3",
+            "Zone 4"
+        ]
+    )
+
+
+    duration = st.number_input(
+        "Duration (seconds)",
+        min_value=1,
+        max_value=300,
+        value=10,
+        step=1
+    )
+
+
+    dosage = st.number_input(
+        "Dosage (ml)",
+        min_value=1.0,
+        max_value=500.0,
+        value=25.0,
+        step=1.0,
+        key="spray_amount"
+    )
+
+
+    html(f"""
+    <div class="spray-info">
+
+        💡 <strong>{zone}</strong><br><br>
+
+        {dosage:.0f} ml for
+        {duration} seconds.
+
+    </div>
+    """)
+
+
+# ============================================================
+# AI DETECTION
+# ============================================================
+
+st.markdown(
+    '<div class="section-title">🌿 AI Detection</div>',
+    unsafe_allow_html=True
+)
+
+
+ai_left, ai_middle, ai_right = st.columns(
+    [1.05, 1.15, 0.75],
+    gap="medium"
+)
+
+
+# ============================================================
+# AI IMAGE
+# ============================================================
+
+with ai_left:
+
+    image = get_latest_image()
+
+    if image is not None:
+
+        st.image(
+            image,
             use_container_width=True
-        ):
+        )
 
-            response = send_rover_command(
-                "B",
-                rover_speed
-            )
+        html("""
+        <div style="
+            background:#09251c;
+            color:white;
+            padding:7px 12px;
+            border-radius:8px;
+            margin-top:-55px;
+            margin-left:10px;
+            margin-right:10px;
+            position:relative;
+            font-size:11px;
+        ">
+            AI Analysis Image
+        </div>
+        """)
 
-            if response is not None:
+    else:
 
-                if response.status_code != 200:
+        html("""
+        <div class="camera-container">
 
-                    st.error(
-                        get_error_message(response)
-                    )
+            <div class="camera-placeholder">
+
+                <div class="camera-placeholder-icon">
+                    🌿
+                </div>
+
+                <div class="camera-placeholder-text">
+                    No image available
+                </div>
+
+            </div>
+
+        </div>
+        """)
 
 
 # ============================================================
-# ROVER LIVE STATUS
+# AI RESULT
 # ============================================================
 
-@st.fragment(run_every="2s")
-def rover_live_status():
+with ai_middle:
 
-    current_state = get_state()
+    html("""
+    <div class="detection-panel">
 
-    if current_state is None:
-        return
+        <div class="disease-card">
 
-    esp = current_state.get(
-        "esp32",
-        {}
+            <div class="disease-title">
+                ⚠ DISEASE DETECTION
+            </div>
+
+            <div class="disease-name">
+                Awaiting Analysis
+            </div>
+
+            <div class="disease-description">
+                Capture a plant image and run the
+                AI detection model to identify
+                possible crop diseases.
+            </div>
+
+        </div>
+
+
+        <div class="recommendation">
+
+            <div class="recommendation-title">
+                💡 RECOMMENDED ACTION
+            </div>
+
+            <div class="recommendation-name">
+                Precision Monitoring
+            </div>
+
+            <div class="disease-description">
+                Capture the latest plant image
+                before initiating targeted spraying.
+            </div>
+
+        </div>
+
+    </div>
+    """)
+
+
+# ============================================================
+# QUOTE
+# ============================================================
+
+with ai_right:
+
+    html("""
+    <div class="quote-card">
+
+        <div class="quote-icon">
+            🌱
+        </div>
+
+        <div class="quote">
+            “Detect Early<br>
+            Treat Precisely<br>
+            Grow Better”
+        </div>
+
+        <div class="quote-line"></div>
+
+    </div>
+    """)
+
+
+# ============================================================
+# LIVE SYSTEM STATUS
+# ============================================================
+
+st.markdown(
+    '<div class="section-title">System Status</div>',
+    unsafe_allow_html=True
+)
+
+
+status1, status2, status3, status4 = st.columns(4)
+
+
+with status1:
+
+    if backend_online:
+
+        st.success("🟢 Backend Online")
+
+    else:
+
+        st.error("🔴 Backend Offline")
+
+
+with status2:
+
+    if esp32_online:
+
+        st.success("🟢 ESP32 Online")
+
+    else:
+
+        st.warning("🟡 ESP32 Offline")
+
+
+with status3:
+
+    if image_available:
+
+        st.success("📷 Camera Available")
+
+    else:
+
+        st.info("📷 Camera Waiting")
+
+
+with status4:
+
+    st.info(
+        f"💧 {sprayed_amount:.1f} ml Dispensed"
     )
-
-    online = esp.get(
-        "online",
-        False
-    )
-
-    status = esp.get(
-        "rover_status",
-        "UNKNOWN"
-    )
-
-    speed = esp.get(
-        "speed",
-        50
-    )
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-
-        if online:
-
-            st.success(
-                "🟢 ESP32 ONLINE"
-            )
-
-        else:
-
-            st.error(
-                "🔴 ESP32 OFFLINE"
-            )
-
-    with col2:
-
-        st.info(
-            f"🚜 Rover: **{status}**"
-        )
-
-    with col3:
-
-        st.info(
-            f"⚡ Speed: **{speed}%**"
-        )
-
-
-rover_live_status()
 
 
 # ============================================================
 # FOOTER
 # ============================================================
 
-st.write("")
+html("""
+<div class="footer">
 
-st.markdown(
-    """
-    <div class="footer">
+    © 2026 CropIQ
+    &nbsp; • &nbsp;
+    Precision Agriculture
+    &nbsp; • &nbsp;
+    AI-Powered Targeted Spraying
 
-        © 2026 CropIQ
-        &nbsp;&nbsp;•&nbsp;&nbsp;
-        Precision Agriculture
-        &nbsp;&nbsp;•&nbsp;&nbsp;
-        AI-powered targeted spraying
-
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+</div>
+""")
