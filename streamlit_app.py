@@ -18,7 +18,7 @@ REQUEST_TIMEOUT = 15
 
 st.set_page_config(
     page_title="CropIQ | Precision Agriculture",
-    page_icon="🌿",
+    page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -37,18 +37,16 @@ st.markdown(
        ===================================================== */
 
     .stApp {
-        background: #f3f7f5;
+        background: #eef4f1;
     }
 
     .main .block-container {
         max-width: 1500px;
-        padding-top: 1.5rem;
+        padding-top: 1rem;
         padding-bottom: 2rem;
-        padding-left: 2rem;
-        padding-right: 2rem;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
     }
-
-    /* Hide Streamlit default elements */
 
     #MainMenu {
         visibility: hidden;
@@ -62,7 +60,6 @@ st.markdown(
         background: transparent !important;
     }
 
-
     /* =====================================================
        SIDEBAR
        ===================================================== */
@@ -71,11 +68,12 @@ st.markdown(
         background: linear-gradient(
             180deg,
             #003f32 0%,
-            #004d3d 45%,
-            #002f27 100%
+            #004c3d 50%,
+            #002d25 100%
         );
-        min-width: 270px;
-        max-width: 270px;
+
+        min-width: 280px;
+        max-width: 280px;
     }
 
     section[data-testid="stSidebar"] > div {
@@ -86,46 +84,11 @@ st.markdown(
         padding: 1.5rem 1rem;
     }
 
-    /* Sidebar text */
-
     section[data-testid="stSidebar"] p,
     section[data-testid="stSidebar"] label,
     section[data-testid="stSidebar"] span {
         color: white !important;
     }
-
-    /* Sidebar radio */
-
-    section[data-testid="stSidebar"] div[role="radiogroup"] {
-        gap: 8px;
-    }
-
-    section[data-testid="stSidebar"] div[role="radiogroup"] > label {
-        background: transparent;
-        border-radius: 12px;
-        padding: 12px 14px;
-        transition: 0.2s;
-    }
-
-    section[data-testid="stSidebar"] div[role="radiogroup"] > label:hover {
-        background: rgba(255,255,255,0.08);
-    }
-
-    section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-checked="true"] {
-        background: linear-gradient(
-            90deg,
-            #159447,
-            #087c3b
-        );
-        box-shadow: 0 5px 15px rgba(0,0,0,0.18);
-    }
-
-    /* Hide radio circles */
-
-    section[data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child {
-        display: none;
-    }
-
 
     /* =====================================================
        SIDEBAR BRAND
@@ -133,68 +96,110 @@ st.markdown(
 
     .sidebar-brand {
         text-align: center;
-        padding: 10px 5px 25px 5px;
+        padding: 10px 5px 30px 5px;
     }
 
     .sidebar-logo {
-        font-size: 48px;
+        font-size: 54px;
         line-height: 1;
+        margin-bottom: 4px;
     }
 
     .sidebar-name {
         font-size: 32px;
         font-weight: 800;
         color: white;
-        margin-top: 5px;
+        letter-spacing: -1px;
     }
 
     .sidebar-tagline {
-        color: #c6ddd6;
+        color: #b8d8ce;
         font-size: 13px;
         line-height: 1.5;
         margin-top: 8px;
     }
 
     .sidebar-section {
-        color: #8fc8b9;
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 1.5px;
-        margin-top: 20px;
+        color: #82b9aa;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 1.8px;
+        margin-top: 15px;
         margin-bottom: 8px;
     }
 
+    /* =====================================================
+       SIDEBAR NAVIGATION
+       ===================================================== */
+
+    section[data-testid="stSidebar"]
+    div[role="radiogroup"] {
+        gap: 6px;
+    }
+
+    section[data-testid="stSidebar"]
+    div[role="radiogroup"] > label {
+        background: transparent;
+        border-radius: 12px;
+        padding: 12px 14px;
+        margin-bottom: 3px;
+        transition: all 0.2s ease;
+    }
+
+    section[data-testid="stSidebar"]
+    div[role="radiogroup"] > label:hover {
+        background: rgba(255,255,255,0.08);
+    }
+
+    section[data-testid="stSidebar"]
+    div[role="radiogroup"]
+    > label[data-checked="true"] {
+        background: linear-gradient(
+            90deg,
+            #149451,
+            #08783e
+        );
+
+        box-shadow:
+            0 7px 18px rgba(0,0,0,0.18);
+    }
+
+    section[data-testid="stSidebar"]
+    div[role="radiogroup"]
+    > label > div:first-child {
+        display: none;
+    }
 
     /* =====================================================
        SIDEBAR SYSTEM CARD
        ===================================================== */
 
     .sidebar-system {
-        margin-top: 30px;
+        margin-top: 35px;
         padding: 18px;
         border-radius: 16px;
-        border: 1px solid rgba(125,220,174,0.35);
-        background: rgba(0,0,0,0.13);
+        border: 1px solid rgba(120,220,170,0.35);
+        background: rgba(0,0,0,0.15);
     }
 
     .sidebar-system-title {
-        color: #d9eee7;
+        color: #cce3db;
         font-size: 12px;
     }
 
     .sidebar-online {
-        color: #62e88d;
+        color: #64e58b;
         font-size: 18px;
-        font-weight: 700;
-        margin-top: 4px;
+        font-weight: 800;
+        margin-top: 5px;
     }
 
     .sidebar-uptime {
-        color: white;
-        font-size: 13px;
-        margin-top: 14px;
+        color: #d0e3dd;
+        font-size: 12px;
+        margin-top: 13px;
+        line-height: 1.7;
     }
-
 
     /* =====================================================
        TOP HEADER
@@ -202,79 +207,85 @@ st.markdown(
 
     .top-header {
         background: white;
-        border-radius: 20px;
-        padding: 18px 25px;
-        box-shadow: 0 5px 25px rgba(25,65,45,0.08);
-        border: 1px solid #e2ebe6;
-        margin-bottom: 20px;
+        border-radius: 18px;
+        padding: 17px 22px;
+        border: 1px solid #dfe9e4;
+        box-shadow: 0 5px 20px rgba(25,65,45,0.07);
+        min-height: 72px;
     }
 
     .brand-title {
         font-size: 30px;
-        font-weight: 800;
+        font-weight: 850;
         color: #003f32;
-        margin: 0;
+        line-height: 1.1;
     }
 
     .brand-subtitle {
-        color: #697772;
-        font-size: 14px;
-        margin-top: 3px;
+        color: #718079;
+        font-size: 13px;
+        margin-top: 4px;
     }
 
     .online-pill {
         display: inline-block;
-        background: #e8f8ed;
-        color: #087b3d;
-        border: 1px solid #b9e5c6;
+        background: #e7f8ed;
+        color: #087c3e;
+        border: 1px solid #b9e4c7;
         border-radius: 25px;
-        padding: 9px 16px;
-        font-size: 13px;
-        font-weight: 700;
+        padding: 8px 15px;
+        font-size: 12px;
+        font-weight: 800;
     }
 
+    .datetime {
+        color: #6f7c76;
+        font-size: 11px;
+        margin-top: 8px;
+    }
 
     /* =====================================================
        HERO
        ===================================================== */
 
     .hero {
-        background: linear-gradient(
-            135deg,
-            #eef8f1,
-            #ffffff
-        );
-        border-radius: 20px;
-        border: 1px solid #dfeae4;
-        padding: 22px 25px;
+        background:
+            linear-gradient(
+                135deg,
+                #eaf7ee,
+                #ffffff 70%
+            );
+
+        border: 1px solid #dce9e2;
+        border-radius: 18px;
+        padding: 23px 25px;
+        margin-top: 18px;
         margin-bottom: 18px;
     }
 
     .hero-title {
-        font-size: 28px;
-        font-weight: 800;
-        color: #003f32;
-        margin-bottom: 5px;
+        font-size: 27px;
+        font-weight: 850;
+        color: #063d31;
     }
 
     .hero-text {
-        color: #697772;
-        font-size: 14px;
+        font-size: 13px;
+        color: #718079;
+        margin-top: 5px;
     }
-
 
     /* =====================================================
        SECTION TITLE
        ===================================================== */
 
     .section-title {
-        font-size: 21px;
-        font-weight: 800;
+        font-size: 20px;
+        font-weight: 850;
         color: #073e34;
-        margin-top: 18px;
+        margin-top: 20px;
         margin-bottom: 12px;
     }
-
 
     /* =====================================================
        KPI CARDS
@@ -282,50 +293,59 @@ st.markdown(
 
     .kpi-card {
         background: white;
-        border-radius: 17px;
         border: 1px solid #dfe8e3;
-        padding: 20px;
+        border-radius: 17px;
+        padding: 19px;
         min-height: 145px;
-        box-shadow: 0 5px 18px rgba(30,70,50,0.06);
+
+        box-shadow:
+            0 6px 20px rgba(25,65,45,0.06);
+
+        transition: all 0.2s ease;
+    }
+
+    .kpi-card:hover {
+        transform: translateY(-2px);
+
+        box-shadow:
+            0 10px 28px rgba(25,65,45,0.10);
     }
 
     .kpi-icon {
-        font-size: 27px;
-        margin-bottom: 5px;
+        font-size: 25px;
+        margin-bottom: 7px;
     }
 
     .kpi-label {
         color: #738079;
-        font-size: 12px;
-        font-weight: 600;
+        font-size: 11px;
+        font-weight: 700;
         letter-spacing: 0.5px;
     }
 
     .kpi-value {
-        color: #073e34;
-        font-size: 24px;
-        font-weight: 800;
-        margin-top: 7px;
+        font-size: 23px;
+        font-weight: 850;
+        margin-top: 6px;
     }
 
     .kpi-green {
-        color: #087d3e;
+        color: #087b3d;
     }
 
     .kpi-blue {
-        color: #1476c9;
+        color: #1676c9;
     }
 
     .kpi-purple {
-        color: #7141c7;
+        color: #7041c5;
     }
 
     .kpi-description {
-        color: #8b9691;
-        font-size: 12px;
+        color: #8a9690;
+        font-size: 11px;
         margin-top: 8px;
     }
-
 
     /* =====================================================
        PANELS
@@ -335,24 +355,23 @@ st.markdown(
         background: white;
         border: 1px solid #dfe8e3;
         border-radius: 18px;
-        padding: 18px;
-        box-shadow: 0 5px 18px rgba(30,70,50,0.06);
-        margin-bottom: 18px;
+        padding: 19px;
+        box-shadow: 0 6px 20px rgba(25,65,45,0.06);
+        margin-bottom: 10px;
     }
 
     .panel-title {
-        color: #073e34;
-        font-size: 20px;
-        font-weight: 800;
-        margin-bottom: 5px;
+        color: #063d31;
+        font-size: 19px;
+        font-weight: 850;
     }
 
     .panel-description {
         color: #78847f;
-        font-size: 13px;
-        margin-bottom: 15px;
+        font-size: 12px;
+        line-height: 1.5;
+        margin-top: 5px;
     }
-
 
     /* =====================================================
        IMAGE
@@ -360,8 +379,8 @@ st.markdown(
 
     [data-testid="stImage"] img {
         border-radius: 14px;
+        border: 1px solid #dfe8e3;
     }
-
 
     /* =====================================================
        BUTTONS
@@ -369,17 +388,32 @@ st.markdown(
 
     .stButton > button {
         border-radius: 11px !important;
-        min-height: 46px;
-        font-weight: 700 !important;
-        border: 1px solid #d9e5df !important;
+        min-height: 45px;
+        font-weight: 750 !important;
+        border: 1px solid #d7e3dd !important;
+        background: white;
+        color: #123e33;
         transition: all 0.2s ease;
     }
 
     .stButton > button:hover {
         transform: translateY(-1px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.10);
+        border-color: #159451 !important;
+        box-shadow: 0 5px 14px rgba(0,0,0,0.10);
     }
 
+    /* Primary buttons */
+
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(
+            135deg,
+            #159653,
+            #087b3e
+        ) !important;
+
+        color: white !important;
+        border: none !important;
+    }
 
     /* =====================================================
        INPUTS
@@ -394,51 +428,15 @@ st.markdown(
         margin-top: 5px;
     }
 
-
     /* =====================================================
-       ROVER CONTROL
-       ===================================================== */
-
-    .rover-circle {
-        width: 75px;
-        height: 75px;
-        background: linear-gradient(
-            145deg,
-            #d8f6e5,
-            #b6ebce
-        );
-        border-radius: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 28px;
-        color: #07583d;
-        margin: auto;
-    }
-
-    .stop-box {
-        width: 85px;
-        height: 85px;
-        border-radius: 50%;
-        background: #b8ebd0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: auto;
-        color: #07583d;
-        font-weight: 800;
-    }
-
-
-    /* =====================================================
-       STATUS BOX
+       STATUS
        ===================================================== */
 
     .status-ready {
         background: #edfbf2;
         border: 1px solid #c5ecd2;
         border-radius: 14px;
-        padding: 18px;
+        padding: 17px;
         color: #08753b;
     }
 
@@ -446,7 +444,7 @@ st.markdown(
         background: #fff8e5;
         border: 1px solid #f1dc9e;
         border-radius: 14px;
-        padding: 18px;
+        padding: 17px;
         color: #956800;
     }
 
@@ -454,46 +452,92 @@ st.markdown(
         background: #fff0f0;
         border: 1px solid #efc0c0;
         border-radius: 14px;
-        padding: 18px;
+        padding: 17px;
         color: #b42318;
     }
 
+    /* =====================================================
+       ROVER JOYSTICK
+       ===================================================== */
+
+    .joystick-button {
+        background: linear-gradient(
+            145deg,
+            #d8f6e5,
+            #b8ebd0
+        );
+
+        border-radius: 16px;
+        height: 62px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        font-size: 26px;
+        color: #07583d;
+
+        border: 1px solid #b6e5cb;
+    }
+
+    .joystick-stop {
+        background: #b9ebd0;
+        width: 82px;
+        height: 82px;
+
+        border-radius: 50%;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        margin: auto;
+
+        font-size: 16px;
+        font-weight: 850;
+        color: #07583d;
+    }
 
     /* =====================================================
-       AI DETECTION
+       DETECTION
        ===================================================== */
 
     .detection-card {
         background: linear-gradient(
             135deg,
-            #f6faf7,
+            #f4faf6,
             #ffffff
         );
+
         border: 1px solid #dfe8e3;
         border-radius: 16px;
-        padding: 20px;
-        min-height: 180px;
+
+        padding: 19px;
+
+        min-height: 175px;
+
+        box-shadow:
+            0 5px 18px rgba(30,70,50,0.04);
     }
 
     .detection-title {
         color: #063d31;
-        font-size: 20px;
-        font-weight: 800;
+        font-size: 18px;
+        font-weight: 850;
     }
 
     .detection-label {
         color: #77837e;
-        font-size: 12px;
-        margin-top: 10px;
+        font-size: 11px;
+        margin-top: 13px;
     }
 
     .detection-value {
         color: #073e34;
-        font-size: 18px;
-        font-weight: 700;
+        font-size: 17px;
+        font-weight: 750;
         margin-top: 4px;
     }
-
 
     /* =====================================================
        WORKFLOW
@@ -503,30 +547,34 @@ st.markdown(
         background: white;
         border: 1px solid #dfe8e3;
         border-radius: 16px;
+
         padding: 18px;
-        min-height: 130px;
+
+        min-height: 135px;
+
+        box-shadow:
+            0 5px 18px rgba(30,70,50,0.05);
     }
 
     .step-number {
         color: #128047;
-        font-size: 13px;
-        font-weight: 800;
+        font-size: 12px;
+        font-weight: 850;
     }
 
     .step-title {
         color: #073e34;
-        font-size: 18px;
-        font-weight: 800;
-        margin-top: 8px;
+        font-size: 17px;
+        font-weight: 850;
+        margin-top: 7px;
     }
 
     .step-description {
         color: #7c8883;
-        font-size: 12px;
+        font-size: 11px;
         line-height: 1.5;
         margin-top: 5px;
     }
-
 
     /* =====================================================
        FOOTER
@@ -535,10 +583,9 @@ st.markdown(
     .footer {
         text-align: center;
         color: #89948f;
-        font-size: 12px;
+        font-size: 11px;
         padding: 25px 0 5px 0;
     }
-
 
     /* =====================================================
        MOBILE
@@ -567,12 +614,13 @@ st.markdown(
 
 
 # ============================================================
-# HELPER FUNCTIONS
+# BACKEND FUNCTIONS
 # ============================================================
 
 def get_state():
 
     try:
+
         response = requests.get(
             BACKEND_URL + "/state",
             timeout=REQUEST_TIMEOUT
@@ -590,19 +638,23 @@ def get_state():
 def send_capture():
 
     try:
+
         return requests.post(
             BACKEND_URL + "/capture",
             timeout=REQUEST_TIMEOUT
         )
 
     except Exception as e:
+
         st.error(f"Backend connection error: {e}")
+
         return None
 
 
 def send_spray(amount_ml):
 
     try:
+
         return requests.post(
             BACKEND_URL + "/spray",
             json={
@@ -612,13 +664,16 @@ def send_spray(amount_ml):
         )
 
     except Exception as e:
+
         st.error(f"Backend connection error: {e}")
+
         return None
 
 
 def send_rover_command(command, speed):
 
     try:
+
         return requests.post(
             BACKEND_URL + "/rover",
             json={
@@ -629,13 +684,16 @@ def send_rover_command(command, speed):
         )
 
     except Exception as e:
+
         st.error(f"Backend connection error: {e}")
+
         return None
 
 
 def get_latest_image():
 
     try:
+
         response = requests.get(
             BACKEND_URL + "/latest-image",
             timeout=REQUEST_TIMEOUT
@@ -650,9 +708,14 @@ def get_latest_image():
     return None
 
 
+# ============================================================
+# EXTRACT STATE
+# ============================================================
+
 def extract_state(state):
 
     if state is None:
+
         return {
             "spray_status": "OFFLINE",
             "sprayed_amount": 0.0,
@@ -663,17 +726,30 @@ def extract_state(state):
             "speed": 50
         }
 
-    raspberry = state.get("raspberry_pi", {})
-    esp32 = state.get("esp32", {})
+    raspberry = state.get(
+        "raspberry_pi",
+        {}
+    )
+
+    esp32 = state.get(
+        "esp32",
+        {}
+    )
 
     spray_status = raspberry.get(
         "spray_status",
-        state.get("status", "READY")
+        state.get(
+            "status",
+            "READY"
+        )
     )
 
     sprayed_amount = raspberry.get(
         "sprayed_amount",
-        state.get("sprayed_amount", 0.0)
+        state.get(
+            "sprayed_amount",
+            0.0
+        )
     )
 
     raspberry_online = raspberry.get(
@@ -713,7 +789,7 @@ def extract_state(state):
 
 
 # ============================================================
-# GET STATE
+# GET CURRENT STATE
 # ============================================================
 
 state = get_state()
@@ -739,7 +815,9 @@ with st.sidebar:
         """
         <div class="sidebar-brand">
 
-            <div class="sidebar-logo">🌿</div>
+            <div class="sidebar-logo">
+                🌿
+            </div>
 
             <div class="sidebar-name">
                 CropIQ
@@ -787,7 +865,9 @@ with st.sidebar:
 
             <div class="sidebar-uptime">
                 System Status<br>
-                <b>{"Operational" if raspberry_online else "Disconnected"}</b>
+                <b>
+                    {"Operational" if raspberry_online else "Disconnected"}
+                </b>
             </div>
 
         </div>
@@ -800,7 +880,9 @@ with st.sidebar:
 # TOP HEADER
 # ============================================================
 
-header_left, header_right = st.columns([4, 2])
+header_left, header_right = st.columns(
+    [4, 1.6]
+)
 
 with header_left:
 
@@ -821,6 +903,7 @@ with header_left:
         unsafe_allow_html=True
     )
 
+
 with header_right:
 
     st.markdown(
@@ -831,11 +914,7 @@ with header_right:
                 🟢 SYSTEM {"ONLINE" if state is not None else "OFFLINE"}
             </div>
 
-            <div style="
-                color:#6f7c76;
-                font-size:12px;
-                margin-top:9px;
-            ">
+            <div class="datetime">
                 {datetime.now().strftime("%d %b %Y • %I:%M:%S %p")}
             </div>
 
@@ -846,14 +925,14 @@ with header_right:
 
 
 # ============================================================
-# DASHBOARD PAGE
+# DASHBOARD
 # ============================================================
 
 if page == "🏠 Dashboard":
 
-    # --------------------------------------------------------
+    # ========================================================
     # HERO
-    # --------------------------------------------------------
+    # ========================================================
 
     st.markdown(
         """
@@ -875,9 +954,9 @@ if page == "🏠 Dashboard":
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # SYSTEM OVERVIEW
-    # --------------------------------------------------------
+    # ========================================================
 
     st.markdown(
         '<div class="section-title">System Overview</div>',
@@ -886,22 +965,25 @@ if page == "🏠 Dashboard":
 
     k1, k2, k3, k4 = st.columns(4)
 
-    with k1:
 
-        spray_display = str(spray_status).upper()
+    # SPRAYER
+
+    with k1:
 
         st.markdown(
             f"""
             <div class="kpi-card">
 
-                <div class="kpi-icon">💦</div>
+                <div class="kpi-icon">
+                    💦
+                </div>
 
                 <div class="kpi-label">
                     SPRAYER STATUS
                 </div>
 
                 <div class="kpi-value kpi-green">
-                    {spray_display}
+                    {str(spray_status).upper()}
                 </div>
 
                 <div class="kpi-description">
@@ -914,13 +996,17 @@ if page == "🏠 Dashboard":
         )
 
 
+    # LAST DISPENSED
+
     with k2:
 
         st.markdown(
             f"""
             <div class="kpi-card">
 
-                <div class="kpi-icon">💧</div>
+                <div class="kpi-icon">
+                    💧
+                </div>
 
                 <div class="kpi-label">
                     LAST DISPENSED
@@ -940,15 +1026,23 @@ if page == "🏠 Dashboard":
         )
 
 
+    # CAMERA
+
     with k3:
 
-        camera_status = "READY" if raspberry_online else "OFFLINE"
+        camera_status = (
+            "READY"
+            if raspberry_online
+            else "OFFLINE"
+        )
 
         st.markdown(
             f"""
             <div class="kpi-card">
 
-                <div class="kpi-icon">📷</div>
+                <div class="kpi-icon">
+                    📷
+                </div>
 
                 <div class="kpi-label">
                     CAMERA
@@ -968,15 +1062,23 @@ if page == "🏠 Dashboard":
         )
 
 
+    # ESP32
+
     with k4:
 
-        esp_status = "ONLINE" if esp32_online else "OFFLINE"
+        esp_status = (
+            "ONLINE"
+            if esp32_online
+            else "OFFLINE"
+        )
 
         st.markdown(
             f"""
             <div class="kpi-card">
 
-                <div class="kpi-icon">🔌</div>
+                <div class="kpi-icon">
+                    🔌
+                </div>
 
                 <div class="kpi-label">
                     ESP32 ROVER
@@ -996,9 +1098,9 @@ if page == "🏠 Dashboard":
         )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # MAIN CONTROL AREA
-    # --------------------------------------------------------
+    # ========================================================
 
     st.markdown(
         '<div class="section-title">Plant Monitoring & Control</div>',
@@ -1006,7 +1108,7 @@ if page == "🏠 Dashboard":
     )
 
     camera_col, rover_col, spray_col = st.columns(
-        [1.45, 1, 1]
+        [1.35, 1, 1]
     )
 
 
@@ -1050,8 +1152,7 @@ if page == "🏠 Dashboard":
         else:
 
             st.info(
-                "📷 No plant image available yet. "
-                "Capture an image to begin monitoring."
+                "📷 No plant image available yet."
             )
 
         if st.button(
@@ -1110,25 +1211,26 @@ if page == "🏠 Dashboard":
         )
 
         if esp32_online:
-
             st.success("🟢 ESP32 ONLINE")
-
         else:
-
             st.error("🔴 ESP32 OFFLINE")
+
 
         st.markdown(
             f"""
             <div style="
                 text-align:center;
                 color:#53615b;
-                margin-bottom:10px;
+                margin:10px 0;
+                font-size:13px;
             ">
-                Rover: <b>{rover_status}</b>
+                Rover:
+                <b>{rover_status}</b>
             </div>
             """,
             unsafe_allow_html=True
         )
+
 
         speed = st.slider(
             "Speed",
@@ -1139,7 +1241,8 @@ if page == "🏠 Dashboard":
             key="dashboard_speed"
         )
 
-        # Forward
+
+        # FORWARD
 
         c1, c2, c3 = st.columns(3)
 
@@ -1165,7 +1268,7 @@ if page == "🏠 Dashboard":
                         st.error(response.text)
 
 
-        # Left / Stop / Right
+        # LEFT STOP RIGHT
 
         c1, c2, c3 = st.columns(3)
 
@@ -1229,7 +1332,7 @@ if page == "🏠 Dashboard":
                         st.error(response.text)
 
 
-        # Backward
+        # BACKWARD
 
         c1, c2, c3 = st.columns(3)
 
@@ -1276,11 +1379,8 @@ if page == "🏠 Dashboard":
             unsafe_allow_html=True
         )
 
-        if spray_status in [
-            "Spraying...",
-            "SPRAYING",
-            "spraying"
-        ]:
+
+        if str(spray_status).upper() == "SPRAYING":
 
             st.warning(
                 "🟡 SPRAYER ACTIVE"
@@ -1315,15 +1415,16 @@ if page == "🏠 Dashboard":
             key="dashboard_spray"
         ):
 
-            response = send_spray(dosage)
+            response = send_spray(
+                dosage
+            )
 
             if response is not None:
 
                 if response.status_code == 200:
 
                     st.success(
-                        f"Spray command sent: "
-                        f"{dosage:.1f} ml"
+                        f"Spray command sent: {dosage:.1f} ml"
                     )
 
                 elif response.status_code == 409:
@@ -1340,7 +1441,7 @@ if page == "🏠 Dashboard":
 
 
         st.info(
-            "💡 The selected dosage will be sent "
+            "💡 Selected dosage will be sent "
             "to the Raspberry Pi sprayer."
         )
 
@@ -1354,22 +1455,15 @@ if page == "🏠 Dashboard":
         unsafe_allow_html=True
     )
 
-    if spray_status in [
-        "Spraying...",
-        "SPRAYING",
-        "spraying"
-    ]:
+
+    if str(spray_status).upper() == "SPRAYING":
 
         st.warning(
             f"🟡 SPRAYING • "
             f"{float(sprayed_amount):.1f} ml dispensed"
         )
 
-    elif spray_status in [
-        "Completed",
-        "COMPLETED",
-        "completed"
-    ]:
+    elif str(spray_status).upper() == "COMPLETED":
 
         st.success(
             f"🟢 COMPLETED • "
@@ -1392,6 +1486,7 @@ if page == "🏠 Dashboard":
         '<div class="section-title">🌿 AI Detection</div>',
         unsafe_allow_html=True
     )
+
 
     detection1, detection2, detection3 = st.columns(
         [1.1, 1.2, 0.8]
@@ -1489,7 +1584,9 @@ if page == "🏠 Dashboard":
         unsafe_allow_html=True
     )
 
+
     w1, w2, w3, w4 = st.columns(4)
+
 
     workflow = [
         (
@@ -1498,18 +1595,21 @@ if page == "🏠 Dashboard":
             "📷 Capture",
             "Capture the latest plant image using the Raspberry Pi camera."
         ),
+
         (
             w2,
             "STEP 02",
             "🌿 Analyze",
             "Analyze the captured plant image using the AI detection system."
         ),
+
         (
             w3,
             "STEP 03",
             "🎯 Target",
             "Determine the treatment area and required spray quantity."
         ),
+
         (
             w4,
             "STEP 04",
@@ -1517,6 +1617,7 @@ if page == "🏠 Dashboard":
             "Apply the selected spray dosage to the identified target."
         )
     ]
+
 
     for column, step, title, description in workflow:
 
@@ -1545,7 +1646,7 @@ if page == "🏠 Dashboard":
 
 
 # ============================================================
-# LIVE VIEW PAGE
+# LIVE VIEW
 # ============================================================
 
 elif page == "📷 Live View":
@@ -1555,7 +1656,9 @@ elif page == "📷 Live View":
         unsafe_allow_html=True
     )
 
+
     image = get_latest_image()
+
 
     if image is not None:
 
@@ -1599,7 +1702,7 @@ elif page == "📷 Live View":
 
 
 # ============================================================
-# ROVER CONTROL PAGE
+# ROVER CONTROL
 # ============================================================
 
 elif page == "🚜 Rover Control":
@@ -1609,9 +1712,12 @@ elif page == "🚜 Rover Control":
         unsafe_allow_html=True
     )
 
-    st.info(
-        f"ESP32: {'ONLINE' if esp32_online else 'OFFLINE'}"
-    )
+
+    if esp32_online:
+        st.success("🟢 ESP32 ONLINE")
+    else:
+        st.error("🔴 ESP32 OFFLINE")
+
 
     speed = st.slider(
         "Rover Speed",
@@ -1622,20 +1728,23 @@ elif page == "🚜 Rover Control":
         key="rover_page_speed"
     )
 
+
     st.markdown(
         f"""
         <div style="
             text-align:center;
             font-size:18px;
-            font-weight:700;
+            font-weight:750;
             color:#073e34;
             margin:15px;
         ">
-            Current Rover Status: {rover_status}
+            Current Rover Status:
+            {rover_status}
         </div>
         """,
         unsafe_allow_html=True
     )
+
 
     c1, c2, c3 = st.columns(3)
 
@@ -1647,11 +1756,17 @@ elif page == "🚜 Rover Control":
             key="page_forward"
         ):
 
-            send_rover_command("F", speed)
-            st.success("Forward command sent.")
+            response = send_rover_command(
+                "F",
+                speed
+            )
+
+            if response is not None:
+                st.success("Forward command sent.")
 
 
     c1, c2, c3 = st.columns(3)
+
 
     with c1:
 
@@ -1661,7 +1776,10 @@ elif page == "🚜 Rover Control":
             key="page_left"
         ):
 
-            send_rover_command("L", speed)
+            send_rover_command(
+                "L",
+                speed
+            )
 
 
     with c2:
@@ -1672,8 +1790,14 @@ elif page == "🚜 Rover Control":
             key="page_stop"
         ):
 
-            send_rover_command("S", speed)
-            st.success("Rover stopped.")
+            send_rover_command(
+                "S",
+                speed
+            )
+
+            st.success(
+                "Rover stopped."
+            )
 
 
     with c3:
@@ -1684,10 +1808,14 @@ elif page == "🚜 Rover Control":
             key="page_right"
         ):
 
-            send_rover_command("R", speed)
+            send_rover_command(
+                "R",
+                speed
+            )
 
 
     c1, c2, c3 = st.columns(3)
+
 
     with c2:
 
@@ -1697,11 +1825,14 @@ elif page == "🚜 Rover Control":
             key="page_backward"
         ):
 
-            send_rover_command("B", speed)
+            send_rover_command(
+                "B",
+                speed
+            )
 
 
 # ============================================================
-# SPRAYER CONTROL PAGE
+# SPRAYER CONTROL
 # ============================================================
 
 elif page == "💧 Sprayer Control":
@@ -1711,15 +1842,25 @@ elif page == "💧 Sprayer Control":
         unsafe_allow_html=True
     )
 
-    st.metric(
-        "Sprayer Status",
-        str(spray_status).upper()
-    )
 
-    st.metric(
-        "Last Dispensed",
-        f"{float(sprayed_amount):.2f} ml"
-    )
+    col1, col2 = st.columns(2)
+
+
+    with col1:
+
+        st.metric(
+            "Sprayer Status",
+            str(spray_status).upper()
+        )
+
+
+    with col2:
+
+        st.metric(
+            "Last Dispensed",
+            f"{float(sprayed_amount):.2f} ml"
+        )
+
 
     dosage = st.number_input(
         "Spray dosage (ml)",
@@ -1730,6 +1871,7 @@ elif page == "💧 Sprayer Control":
         key="sprayer_page_dosage"
     )
 
+
     if st.button(
         "🚿 START PRECISION SPRAY",
         type="primary",
@@ -1737,7 +1879,9 @@ elif page == "💧 Sprayer Control":
         key="page_spray"
     ):
 
-        response = send_spray(dosage)
+        response = send_spray(
+            dosage
+        )
 
         if response is not None:
 
@@ -1761,7 +1905,7 @@ elif page == "💧 Sprayer Control":
 
 
 # ============================================================
-# AI DETECTION PAGE
+# AI DETECTION
 # ============================================================
 
 elif page == "🌿 AI Detection":
@@ -1771,7 +1915,9 @@ elif page == "🌿 AI Detection":
         unsafe_allow_html=True
     )
 
+
     image = get_latest_image()
+
 
     if image is not None:
 
@@ -1786,6 +1932,7 @@ elif page == "🌿 AI Detection":
         st.info(
             "Capture a plant image first."
         )
+
 
     st.markdown(
         """
@@ -1816,7 +1963,7 @@ elif page == "🌿 AI Detection":
 
 
 # ============================================================
-# SETTINGS PAGE
+# SETTINGS
 # ============================================================
 
 elif page == "⚙️ Settings":
@@ -1826,11 +1973,13 @@ elif page == "⚙️ Settings":
         unsafe_allow_html=True
     )
 
+
     st.subheader("Backend")
 
     st.code(
         BACKEND_URL
     )
+
 
     st.subheader("Spray Configuration")
 
@@ -1842,7 +1991,9 @@ elif page == "⚙️ Settings":
         "Maximum dosage: 500 ml"
     )
 
+
     st.subheader("Hardware")
+
 
     if raspberry_online:
 
