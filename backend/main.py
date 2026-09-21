@@ -61,6 +61,9 @@ latest_image = None
 
 latest_image_type = "image/jpeg"
 
+ai_prediction = None
+ai_confidence = 0.0
+
 
 # =====================================================
 # ESP32 ROVER STATE
