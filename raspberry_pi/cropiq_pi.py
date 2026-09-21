@@ -17,7 +17,7 @@ FLOW_PIN = 18
 
 # Your previous calibration:
 # 3806 pulses / 80 ml = 47.6375 pulses/ml
-PULSES_PER_ML = 47.64
+PULSES_PER_ML = 0.385
 
 CHECK_INTERVAL = 2
 

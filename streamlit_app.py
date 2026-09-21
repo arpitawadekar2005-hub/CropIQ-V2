@@ -1110,6 +1110,133 @@ def get_latest_image():
 
 
 # ============================================================
+# CAMERA FRAGMENT
+# Only the camera area reruns when a capture is requested.
+# The rest of the page stays untouched.
+# ============================================================
+
+@st.fragment
+def camera_fragment(button_text, button_key, primary=False, show_panel=True):
+    """
+    Refresh only the camera section.
+
+    When Capture is pressed:
+    1. Send the capture command.
+    2. Keep the current image visible.
+    3. Poll /latest-image until a different image arrives.
+    4. Replace only the image on screen.
+    """
+
+    if show_panel:
+        st.html("""
+        <div class="panel">
+            <div class="panel-heading">
+                <div>
+                    <div class="panel-title">
+                        📷 Live Camera Feed
+                    </div>
+                    <div class="panel-subtitle">
+                        Latest image captured from the
+                        Raspberry Pi camera.
+                    </div>
+                </div>
+
+                <div class="live-badge">
+                    ● LIVE
+                </div>
+            </div>
+        </div>
+        """)
+
+    current_image = get_latest_image()
+    image_placeholder = st.empty()
+
+    if current_image is not None:
+        image_placeholder.image(
+            current_image,
+            use_container_width=True
+        )
+
+        st.html("""
+        <div class="camera-caption">
+            📷 Live image from Raspberry Pi camera
+            <br>
+            <span style="color:#83918b;">
+                Capture a new image to update the
+                monitoring view.
+            </span>
+        </div>
+        """)
+    else:
+        image_placeholder.html("""
+        <div class="camera-placeholder">
+            <div>
+                <div class="camera-icon">📷</div>
+                <div>No plant image available</div>
+                <div style="
+                    font-size:11px;
+                    margin-top:5px;
+                    color:#91a49b;
+                ">
+                    Capture an image to begin monitoring
+                </div>
+            </div>
+        </div>
+        """)
+
+    st.write("")
+
+    if st.button(
+        button_text,
+        type="primary" if primary else "secondary",
+        use_container_width=True,
+        key=button_key
+    ):
+        response = send_capture()
+
+        if response is None:
+            return
+
+        if response.status_code == 409:
+            st.warning("Another command is already pending.")
+            return
+
+        if response.status_code != 200:
+            st.error(f"Capture failed: {response.text}")
+            return
+
+        st.info("📸 Capturing new image...")
+
+        # Wait for Raspberry Pi to actually upload the new image.
+        # Only this fragment is running during the wait.
+        new_image = None
+
+        for _ in range(20):  # Up to 10 seconds
+            time.sleep(0.5)
+
+            candidate = get_latest_image()
+
+            if candidate is not None:
+                if current_image is None or candidate != current_image:
+                    new_image = candidate
+                    break
+
+        if new_image is not None:
+            # Replace ONLY the image placeholder.
+            image_placeholder.image(
+                new_image,
+                use_container_width=True
+            )
+
+            st.success("✅ New image captured and displayed.")
+        else:
+            st.warning(
+                "Capture command was sent, but the new image "
+                "has not arrived yet. Please wait a moment."
+            )
+
+
+# ============================================================
 # STATE
 # ============================================================
 
@@ -1392,92 +1519,12 @@ if page == "🏠 Dashboard":
 
     with camera_col:
 
-        st.html("""
-        <div class="panel">
-            <div class="panel-heading">
-                <div>
-                    <div class="panel-title">
-                        📷 Live Camera Feed
-                    </div>
-                    <div class="panel-subtitle">
-                        Latest image captured from the
-                        Raspberry Pi camera.
-                    </div>
-                </div>
-
-                <div class="live-badge">
-                    ● LIVE
-                </div>
-            </div>
-        </div>
-        """)
-
-        image = get_latest_image()
-
-        if image is not None:
-
-            st.image(
-                image,
-                use_container_width=True
-            )
-
-            st.html("""
-            <div class="camera-caption">
-                📷 Live image from Raspberry Pi camera
-                <br>
-                <span style="color:#83918b;">
-                    Capture a new image to update the
-                    monitoring view.
-                </span>
-            </div>
-            """)
-
-        else:
-
-            st.html("""
-            <div class="camera-placeholder">
-                <div>
-                    <div class="camera-icon">📷</div>
-                    <div>No plant image available</div>
-                    <div style="
-                        font-size:11px;
-                        margin-top:5px;
-                        color:#91a49b;
-                    ">
-                        Capture an image to begin monitoring
-                    </div>
-                </div>
-            </div>
-            """)
-
-        st.write("")
-
-        if st.button(
-            "📸 CAPTURE PLANT IMAGE",
-            use_container_width=True,
-            key="capture_dashboard"
-        ):
-
-            response = send_capture()
-
-            if response:
-
-                if response.status_code == 200:
-                    st.success(
-                        "Capture command sent to Raspberry Pi."
-                    )
-                    time.sleep(0.5)
-                    st.rerun()
-
-                elif response.status_code == 409:
-                    st.warning(
-                        "Another command is already pending."
-                    )
-
-                else:
-                    st.error(
-                        f"Capture failed: {response.text}"
-                    )
+        camera_fragment(
+            button_text="📸 CAPTURE PLANT IMAGE",
+            button_key="capture_dashboard",
+            primary=False,
+            show_panel=True
+        )
 
 
     # --------------------------------------------------------
@@ -1864,32 +1911,12 @@ elif page == "📷 Live View":
     </div>
     """)
 
-    image = get_latest_image()
-
-    if image is not None:
-        st.image(
-            image,
-            use_container_width=True
-        )
-    else:
-        st.info("No plant image available.")
-
-    if st.button(
-        "📸 CAPTURE NEW IMAGE",
-        type="primary",
-        use_container_width=True,
-        key="live_capture"
-    ):
-
-        response = send_capture()
-
-        if response and response.status_code == 200:
-            st.success("Capture command sent.")
-            time.sleep(0.5)
-            st.rerun()
-
-        elif response:
-            st.error(response.text)
+    camera_fragment(
+        button_text="📸 CAPTURE NEW IMAGE",
+        button_key="live_capture",
+        primary=True,
+        show_panel=False
+    )
 
 
 # ============================================================
