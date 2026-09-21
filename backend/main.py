@@ -7,9 +7,32 @@ from fastapi import (
     WebSocketDisconnect
 )
 
-from fastapi.responses import Response
+import io
+import numpy as np
+import tensorflow as tf
+from PIL import Image
 
+from fastapi.responses import Response
 from pydantic import BaseModel
+# =====================================================
+# AI MODEL
+# =====================================================
+
+MODEL_PATH = "model/cropiq_final_efficientnetb0.keras"
+
+class_names = [
+    "Guava_Anthracnose",
+    "Guava_fruit_fly",
+    "Guava_healthy_guava",
+    "Pomegranate_Alternaria",
+    "Pomegranate_Anthracnose",
+    "Pomegranate_Cercospora",
+    "Pomegranate_Healthy"
+]
+
+model = tf.keras.models.load_model(MODEL_PATH)
+
+print("CropIQ AI model loaded successfully")
 
 
 # =====================================================
