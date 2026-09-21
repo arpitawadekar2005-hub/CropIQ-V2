@@ -450,8 +450,9 @@ async def upload_image(
 ):
 
     global latest_image
-
     global latest_image_type
+    global ai_prediction
+    global ai_confidence
 
 
     image_data = await file.read()
@@ -470,6 +471,8 @@ async def upload_image(
 
     latest_image = image_data
 
+    ai_prediction, ai_confidence = predict_image(image_data)
+
 
     latest_image_type = (
 
@@ -481,11 +484,10 @@ async def upload_image(
 
 
     return {
-
-        "message":
-        "Image uploaded successfully"
-
-    }
+    "message": "Image uploaded successfully",
+    "prediction": ai_prediction,
+    "confidence": ai_confidence
+}
 
 
 # =====================================================
