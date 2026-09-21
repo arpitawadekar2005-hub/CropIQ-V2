@@ -18,6 +18,10 @@ from pydantic import BaseModel
 # AI MODEL
 # =====================================================
 
+# =====================================================
+# AI MODEL
+# =====================================================
+
 MODEL_PATH = "model/cropiq_final_efficientnetb0.keras"
 
 class_names = [
@@ -33,6 +37,26 @@ class_names = [
 model = tf.keras.models.load_model(MODEL_PATH)
 
 print("CropIQ AI model loaded successfully")
+
+
+def predict_image(image_data):
+    image = Image.open(io.BytesIO(image_data)).convert("RGB")
+
+    image = image.resize((224, 224))
+
+    image_array = np.array(image, dtype=np.float32)
+
+    image_array = np.expand_dims(image_array, axis=0)
+
+    predictions = model.predict(image_array, verbose=0)
+
+    predicted_index = int(np.argmax(predictions[0]))
+
+    confidence = float(predictions[0][predicted_index]) * 100
+
+    predicted_class = class_names[predicted_index]
+
+    return predicted_class, confidence
 
 
 # =====================================================
