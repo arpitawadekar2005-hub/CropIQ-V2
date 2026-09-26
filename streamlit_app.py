@@ -2414,3 +2414,4 @@ st.html("""
     AI-Powered Targeted Spraying
 </div>
 """)
+
