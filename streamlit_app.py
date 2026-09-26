@@ -1109,6 +1109,28 @@ def get_latest_image():
     return None
 
 
+def predict_manual_image(uploaded_file):
+    """Send a manually uploaded image to the ML prediction endpoint."""
+    try:
+        files = {
+            "file": (
+                uploaded_file.name,
+                uploaded_file.getvalue(),
+                uploaded_file.type or "image/jpeg",
+            )
+        }
+
+        return requests.post(
+            BACKEND_URL + "/predict",
+            files=files,
+            timeout=REQUEST_TIMEOUT,
+        )
+
+    except Exception as e:
+        st.error(f"ML prediction error: {e}")
+        return None
+
+
 # ============================================================
 # CAMERA FRAGMENT
 # Only the camera area reruns when a capture is requested.
@@ -2087,83 +2109,246 @@ elif page == "🌿 AI Detection":
         </div>
 
         <div class="hero-subtitle">
-            AI-powered disease detection and
-            targeted treatment recommendation.
+            Upload a plant image manually and analyze it
+            using the CropIQ machine learning model.
         </div>
     </div>
     """)
 
-    image = get_latest_image()
+    st.html("""
+    <div class="section-title">
+        📤 Manual Image Analysis
+    </div>
+    """)
 
-    if image is not None:
-        st.image(
-            image,
-            use_container_width=True
+    upload_col, preview_col = st.columns([1, 1])
+
+    with upload_col:
+        st.html("""
+        <div class="panel">
+            <div class="panel-heading">
+                <div>
+                    <div class="panel-title">
+                        🌿 Upload Plant Image
+                    </div>
+                    <div class="panel-subtitle">
+                        Select a leaf image to test the CropIQ ML model.
+                    </div>
+                </div>
+                <div class="live-badge">
+                    AI TEST
+                </div>
+            </div>
+        </div>
+        """)
+
+        uploaded_file = st.file_uploader(
+            "Choose a plant image",
+            type=["jpg", "jpeg", "png"],
+            key="manual_plant_upload",
         )
-    else:
-        st.info("Capture a plant image first.")
 
-    a1, a2, a3 = st.columns(3)
+        analyze_button = False
 
-    with a1:
+        if uploaded_file is not None:
+            st.success(f"Image selected: {uploaded_file.name}")
+
+            analyze_button = st.button(
+                "🔍 ANALYZE IMAGE",
+                type="primary",
+                use_container_width=True,
+                key="manual_analyze",
+            )
+
+    with preview_col:
+        if uploaded_file is not None:
+            st.html("""
+            <div class="panel">
+                <div class="panel-title">
+                    📷 Image Preview
+                </div>
+            </div>
+            """)
+
+            st.image(uploaded_file, use_container_width=True)
+
+        else:
+            st.html("""
+            <div class="camera-placeholder">
+                <div>
+                    <div class="camera-icon">🌿</div>
+                    <div>No image selected</div>
+                    <div style="
+                        font-size:11px;
+                        margin-top:5px;
+                        color:#91a49b;
+                    ">
+                        Upload a plant image to begin AI analysis
+                    </div>
+                </div>
+            </div>
+            """)
+
+    # --------------------------------------------------------
+    # RUN ML MODEL
+    # --------------------------------------------------------
+
+    if uploaded_file is not None and analyze_button:
+
+        with st.spinner("🤖 Analyzing image with CropIQ AI..."):
+            response = predict_manual_image(uploaded_file)
+
+        if response is not None:
+
+            if response.status_code == 200:
+                try:
+                    result = response.json()
+                    st.session_state["manual_prediction"] = result
+                    st.success("✅ AI analysis completed successfully.")
+                except Exception:
+                    st.error(
+                        "The backend returned an invalid JSON prediction."
+                    )
+
+            else:
+                st.error(
+                    f"Prediction failed ({response.status_code}): "
+                    f"{response.text}"
+                )
+
+    # --------------------------------------------------------
+    # DISPLAY PREDICTION
+    # --------------------------------------------------------
+
+    if "manual_prediction" in st.session_state:
+
+        result = st.session_state["manual_prediction"]
+
         st.html("""
-        <div class="ai-card">
-            <div class="ai-title">
-                🌿 Plant Analysis
-            </div>
-            <div class="ai-label">
-                STATUS
-            </div>
-            <div class="ai-value">
-                Awaiting Analysis
-            </div>
-            <div class="ai-text">
-                AI analysis will appear here
-                after image processing.
-            </div>
+        <div class="section-title">
+            🧠 ML Prediction Result
         </div>
         """)
 
-    with a2:
-        st.html("""
-        <div class="ai-card ai-alert">
-            <div class="ai-title">
-                🔬 Disease Detection
-            </div>
-            <div class="ai-label">
-                CONDITION
-            </div>
-            <div class="ai-value">
-                No analysis available
-            </div>
-            <div class="ai-text">
-                Connect your disease detection
-                model to display diagnosis.
-            </div>
-        </div>
-        """)
+        plant = result.get(
+            "plant",
+            result.get("plant_type", "Unknown")
+        )
 
-    with a3:
-        st.html("""
-        <div class="ai-card ai-recommend">
-            <div class="ai-title">
-                💡 Recommendation
+        disease = result.get(
+            "disease",
+            result.get("prediction", "Unknown")
+        )
+
+        confidence = result.get(
+            "confidence",
+            result.get("confidence_score", 0)
+        )
+
+        infection = result.get(
+            "infection_percentage",
+            result.get("infection", "Not available")
+        )
+
+        pesticide = result.get(
+            "pesticide",
+            "Not available"
+        )
+
+        dose = result.get(
+            "dose_ml",
+            result.get("dose", "Not available")
+        )
+
+        try:
+            confidence_value = float(confidence)
+
+            if confidence_value <= 1:
+                confidence_display = confidence_value * 100
+            else:
+                confidence_display = confidence_value
+
+        except (TypeError, ValueError):
+            confidence_display = 0
+
+        r1, r2, r3 = st.columns(3)
+
+        with r1:
+            st.html(f"""
+            <div class="ai-card">
+                <div class="ai-title">
+                    🌿 Plant
+                </div>
+                <div class="ai-label">
+                    DETECTED PLANT
+                </div>
+                <div class="ai-value">
+                    {plant}
+                </div>
+                <div class="ai-text">
+                    Plant identified by the ML model.
+                </div>
             </div>
-            <div class="ai-label">
-                ACTION
+            """)
+
+        with r2:
+            st.html(f"""
+            <div class="ai-card ai-alert">
+                <div class="ai-title">
+                    🔬 Disease
+                </div>
+                <div class="ai-label">
+                    DETECTED CONDITION
+                </div>
+                <div class="ai-value">
+                    {disease}
+                </div>
+                <div class="ai-text">
+                    Disease classification from the uploaded image.
+                </div>
             </div>
-            <div class="ai-value">
-                Awaiting Detection
+            """)
+
+        with r3:
+            st.html(f"""
+            <div class="ai-card ai-recommend">
+                <div class="ai-title">
+                    🎯 Confidence
+                </div>
+                <div class="ai-label">
+                    MODEL CONFIDENCE
+                </div>
+                <div class="ai-value">
+                    {confidence_display:.2f}%
+                </div>
+                <div class="ai-text">
+                    Confidence reported by the ML model.
+                </div>
             </div>
-            <div class="ai-text">
-                Treatment recommendation will
-                appear here.
-            </div>
-        </div>
-        """)
+            """)
+
+        st.write("")
+
+        b1, b2, b3 = st.columns(3)
+
+        with b1:
+            st.metric("🦠 Infection", infection)
+
+        with b2:
+            st.metric("🧪 Pesticide", pesticide)
+
+        with b3:
+            dose_text = (
+                f"{dose} ml"
+                if str(dose).replace(".", "", 1).isdigit()
+                else str(dose)
+            )
+            st.metric("💧 Recommended Dose", dose_text)
+
+        with st.expander("🔧 View ML Backend Response"):
+            st.json(result)
 
 
-# ============================================================
 # SETTINGS
 # ============================================================
 
