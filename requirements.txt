@@ -1,6 +1,3 @@
-fastapi
-uvicorn[standard]
-python-multipart
-requests
-streamlit
-opencv-python
+version https://git-lfs.github.com/spec/v1
+oid sha256:3b6a3f7a646b7bb8c8d5685af541b0d123ada6ced5b975eb9e0e2c06c1c13371
+size 76

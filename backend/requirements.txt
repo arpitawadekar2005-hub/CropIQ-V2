@@ -1,7 +1,3 @@
-fastapi
-uvicorn[standard]
-python-multipart
-requests
-tensorflow
-numpy
-pillow
+version https://git-lfs.github.com/spec/v1
+oid sha256:5673be6c73f8597eb7d53ce0a939a735ceade8d292cb23b965d53faa887fa218
+size 76

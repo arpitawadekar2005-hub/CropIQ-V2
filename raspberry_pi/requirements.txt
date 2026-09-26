@@ -1,4 +1,3 @@
-requests
-opencv-python
-gpiozero
-RPi.GPIO
+version https://git-lfs.github.com/spec/v1
+oid sha256:e0a1636aff156f0cd1b09ef52068d8bb36a40fdc3dfef88f5ea9a827d6a28dc0
+size 41
