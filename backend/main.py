@@ -188,7 +188,13 @@ def get_state():
             spray_command is not None,
 
             "image_available":
-            latest_image is not None
+            latest_image is not None,
+
+            "ai_prediction":
+            ai_prediction,
+
+            "ai_confidence":
+            ai_confidence
 
         },
 
@@ -488,6 +494,59 @@ async def upload_image(
     "prediction": ai_prediction,
     "confidence": ai_confidence
 }
+
+
+
+
+# =====================================================
+# MANUAL IMAGE PREDICTION
+# =====================================================
+
+@app.post("/predict-manual")
+async def predict_manual(
+    file: UploadFile = File(...)
+):
+
+    image_data = await file.read()
+
+    if not image_data:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail="Empty image"
+
+        )
+
+
+    try:
+
+        prediction, confidence = predict_image(image_data)
+
+    except Exception as e:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail=f"Prediction failed: {str(e)}"
+
+        )
+
+
+    return {
+
+        "message":
+        "Manual image analyzed successfully",
+
+        "prediction":
+        prediction,
+
+        "confidence":
+        confidence
+
+    }
 
 
 # =====================================================
