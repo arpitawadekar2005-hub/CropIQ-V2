@@ -14,15 +14,14 @@ from PIL import Image
 
 from fastapi.responses import Response
 from pydantic import BaseModel
-# =====================================================
-# AI MODEL
-# =====================================================
+
 
 # =====================================================
 # AI MODEL
 # =====================================================
 
 MODEL_PATH = "model/cropiq_final_efficientnetb0.keras"
+
 
 class_names = [
     "Guava_Anthracnose",
@@ -34,27 +33,53 @@ class_names = [
     "Pomegranate_Healthy"
 ]
 
+
 model = tf.keras.models.load_model(MODEL_PATH)
 
 print("CropIQ AI model loaded successfully")
 
 
+# =====================================================
+# AI PREDICTION FUNCTION
+# =====================================================
+
 def predict_image(image_data):
-    image = Image.open(io.BytesIO(image_data)).convert("RGB")
 
-    image = image.resize((224, 224))
+    image = Image.open(
+        io.BytesIO(image_data)
+    ).convert("RGB")
 
-    image_array = np.array(image, dtype=np.float32)
+    image = image.resize(
+        (224, 224)
+    )
 
-    image_array = np.expand_dims(image_array, axis=0)
+    image_array = np.array(
+        image,
+        dtype=np.float32
+    )
 
-    predictions = model.predict(image_array, verbose=0)
+    image_array = np.expand_dims(
+        image_array,
+        axis=0
+    )
 
-    predicted_index = int(np.argmax(predictions[0]))
+    predictions = model.predict(
+        image_array,
+        verbose=0
+    )
 
-    confidence = float(predictions[0][predicted_index]) * 100
+    predicted_index = int(
+        np.argmax(predictions[0])
+    )
 
-    predicted_class = class_names[predicted_index]
+    confidence = (
+        float(predictions[0][predicted_index])
+        * 100
+    )
+
+    predicted_class = (
+        class_names[predicted_index]
+    )
 
     return predicted_class, confidence
 
@@ -63,7 +88,9 @@ def predict_image(image_data):
 # APP
 # =====================================================
 
-app = FastAPI(title="CropIQ API")
+app = FastAPI(
+    title="CropIQ API"
+)
 
 
 # =====================================================
@@ -86,6 +113,7 @@ latest_image = None
 latest_image_type = "image/jpeg"
 
 ai_prediction = None
+
 ai_confidence = 0.0
 
 
@@ -168,21 +196,6 @@ def test():
 
 
 # =====================================================
-# HEALTH CHECK
-# =====================================================
-
-@app.get("/health")
-def health():
-
-    return {
-        "status": "ok",
-        "model_loaded": model is not None,
-        "model_path": MODEL_PATH,
-        "classes": len(class_names)
-    }
-
-
-# =====================================================
 # SYSTEM STATE
 # =====================================================
 
@@ -228,11 +241,14 @@ def get_state():
 # =====================================================
 
 @app.post("/spray")
-def spray(request: SprayRequest):
+def spray(
+    request: SprayRequest
+):
 
     global spray_command
     global spray_status
     global sprayed_amount
+
 
     amount = request.amount_ml
 
@@ -484,11 +500,17 @@ async def upload_image(
         )
 
 
+    # Save Raspberry Pi image
     latest_image = image_data
 
-    ai_prediction, ai_confidence = predict_image(image_data)
+
+    # Run AI prediction
+    ai_prediction, ai_confidence = (
+        predict_image(image_data)
+    )
 
 
+    # Save image type
     latest_image_type = (
 
         file.content_type
@@ -499,152 +521,85 @@ async def upload_image(
 
 
     return {
-    "message": "Image uploaded successfully",
-    "prediction": ai_prediction,
-    "confidence": ai_confidence
-}
+
+        "message":
+        "Image uploaded successfully",
+
+        "prediction":
+        ai_prediction,
+
+        "confidence":
+        ai_confidence
+
+    }
 
 
 # =====================================================
 # MANUAL IMAGE PREDICTION
 # =====================================================
 
-@app.post("/predict")
-async def manual_predict(
+@app.post("/predict-manual")
+async def predict_manual(
     file: UploadFile = File(...)
 ):
-    """
-    Predict a manually uploaded plant image.
 
-    This endpoint is used by the Streamlit AI Detection page.
-    It does NOT replace or modify the Raspberry Pi image flow.
-
-    Request:
-        multipart/form-data
-        field name: file
-
-    Response:
-        prediction
-        plant
-        disease
-        confidence
-        confidence_percent
-        infection_percentage
-        pesticide
-        dose_ml
-    """
-
-    global ai_prediction
-    global ai_confidence
-
-    # -------------------------------------------------
-    # CHECK FILE TYPE
-    # -------------------------------------------------
-
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=400,
-            detail="Please upload a JPG, JPEG or PNG image."
-        )
-
-    # -------------------------------------------------
-    # READ IMAGE
-    # -------------------------------------------------
-
+    # Read uploaded image
     image_data = await file.read()
 
+
+    # Check if image is empty
     if not image_data:
+
         raise HTTPException(
+
             status_code=400,
+
             detail="Empty image"
+
         )
 
+
     # -------------------------------------------------
-    # RUN EXISTING CROP IQ MODEL
+    # RUN ML PREDICTION
     # -------------------------------------------------
 
     try:
-        predicted_class, confidence = predict_image(image_data)
 
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"ML prediction failed: {str(e)}"
+        prediction, confidence = (
+            predict_image(image_data)
         )
 
-    # Save latest AI result so the rest of the backend
-    # can access the most recent prediction.
-    ai_prediction = predicted_class
-    ai_confidence = confidence
+    except Exception as e:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail=
+            f"Prediction failed: {str(e)}"
+
+        )
+
 
     # -------------------------------------------------
-    # SPLIT CLASS NAME
-    # -------------------------------------------------
+    # IMPORTANT:
+    # DO NOT UPDATE latest_image
     #
-    # Your current classes are:
-    #
-    # Guava_Anthracnose
-    # Guava_fruit_fly
-    # Guava_healthy_guava
-    # Pomegranate_Alternaria
-    # Pomegranate_Anthracnose
-    # Pomegranate_Cercospora
-    # Pomegranate_Healthy
-    #
-    # The first "_" separates plant and disease.
-
-    parts = predicted_class.split("_", 1)
-
-    if len(parts) == 2:
-        plant = parts[0]
-        disease = parts[1].replace("_", " ")
-    else:
-        plant = predicted_class
-        disease = predicted_class
-
-    # Make the display text cleaner.
-    plant = plant.replace("_", " ").strip()
-    disease = disease.replace("_", " ").strip()
-
-    # -------------------------------------------------
-    # HEALTHY / DISEASE STATUS
-    # -------------------------------------------------
-
-    disease_lower = disease.lower()
-
-    if "healthy" in disease_lower:
-        condition = "Healthy"
-    else:
-        condition = disease
-
-    # -------------------------------------------------
-    # RESPONSE
+    # This keeps the Raspberry Pi's latest
+    # captured image separate from manual testing.
     # -------------------------------------------------
 
     return {
-        "message": "Manual image prediction successful",
 
-        "prediction": predicted_class,
+        "message":
+        "Manual image analyzed successfully",
 
-        "plant": plant,
+        "prediction":
+        prediction,
 
-        "disease": condition,
+        "confidence":
+        confidence
 
-        "confidence": confidence,
-
-        "confidence_percent": confidence,
-
-        # Your current EfficientNetB0 classifier only
-        # predicts the class and confidence. It does not
-        # calculate infection percentage.
-        "infection_percentage": None,
-
-        # Treatment values are not generated by the
-        # current model, so they are returned as None
-        # rather than inventing values.
-        "pesticide": None,
-
-        "dose_ml": None
     }
 
 
