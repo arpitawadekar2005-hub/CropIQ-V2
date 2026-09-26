@@ -669,6 +669,74 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-chil
 
 
 /* ============================================================
+   MANUAL AI IMAGE UPLOAD
+   ============================================================ */
+
+.manual-upload-card {
+    background: white;
+    border: 1px solid #dfe8e3;
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: 0 6px 20px rgba(25,70,48,0.05);
+}
+
+.manual-upload-title {
+    color: #073e33;
+    font-size: 18px;
+    font-weight: 850;
+    margin-bottom: 5px;
+}
+
+.manual-upload-subtitle {
+    color: #7c8782;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.manual-result {
+    background: linear-gradient(
+        135deg,
+        #eefaf2,
+        #ffffff
+    );
+    border: 1px solid #cce8d5;
+    border-radius: 16px;
+    padding: 18px;
+}
+
+.manual-result-label {
+    color: #75817b;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    margin-top: 8px;
+}
+
+.manual-result-value {
+    color: #073e33;
+    font-size: 21px;
+    font-weight: 850;
+    margin-top: 5px;
+    line-height: 1.25;
+    word-break: break-word;
+}
+
+.manual-confidence {
+    color: #087d3f;
+    font-size: 27px;
+    font-weight: 850;
+    margin-top: 4px;
+}
+
+.manual-model-note {
+    color: #75817b;
+    font-size: 10px;
+    line-height: 1.5;
+    margin-top: 12px;
+}
+
+
+/* ============================================================
    STREAMLIT CONTROLS
    ============================================================ */
 
@@ -928,6 +996,36 @@ div[data-testid="stAlert"] {
         font-size: 9px !important;
     }
 
+    .manual-upload-card {
+        padding: 12px !important;
+        border-radius: 13px !important;
+    }
+
+    .manual-upload-title {
+        font-size: 14px !important;
+    }
+
+    .manual-upload-subtitle {
+        font-size: 9px !important;
+    }
+
+    .manual-result {
+        padding: 12px !important;
+        border-radius: 13px !important;
+    }
+
+    .manual-result-label {
+        font-size: 8px !important;
+    }
+
+    .manual-result-value {
+        font-size: 16px !important;
+    }
+
+    .manual-confidence {
+        font-size: 22px !important;
+    }
+
     /* Workflow */
     .workflow {
         padding: 11px !important;
@@ -1110,25 +1208,47 @@ def get_latest_image():
 
 
 def predict_manual_image(uploaded_file):
-    """Send a manually uploaded image to the ML prediction endpoint."""
+    """
+    Send a manually uploaded image to the backend ML
+    prediction endpoint without replacing the Raspberry
+    Pi's latest captured image.
+    """
+
     try:
+        image_bytes = uploaded_file.getvalue()
+
         files = {
             "file": (
                 uploaded_file.name,
-                uploaded_file.getvalue(),
-                uploaded_file.type or "image/jpeg",
+                image_bytes,
+                uploaded_file.type or "image/jpeg"
             )
         }
 
-        return requests.post(
-            BACKEND_URL + "/predict",
+        response = requests.post(
+            BACKEND_URL + "/predict-manual",
             files=files,
-            timeout=REQUEST_TIMEOUT,
+            timeout=30
+        )
+
+        return response
+
+    except requests.exceptions.Timeout:
+        st.error(
+            "The AI backend took too long to respond."
+        )
+
+    except requests.exceptions.ConnectionError:
+        st.error(
+            "Could not connect to the CropIQ AI backend."
         )
 
     except Exception as e:
-        st.error(f"ML prediction error: {e}")
-        return None
+        st.error(
+            f"Prediction error: {e}"
+        )
+
+    return None
 
 
 # ============================================================
@@ -1278,7 +1398,7 @@ if state:
         state.get("sprayed_amount", 0.0)
     )
 
-    raspberry_online = raspberry.get("online", True)
+    raspberry_online = raspberry.get("online", False)
     image_available = raspberry.get("image_available", False)
     esp32_online = esp32.get("online", False)
 
@@ -2109,246 +2229,442 @@ elif page == "🌿 AI Detection":
         </div>
 
         <div class="hero-subtitle">
-            Upload a plant image manually and analyze it
-            using the CropIQ machine learning model.
+            AI-powered plant disease detection using
+            the CropIQ EfficientNetB0 model.
         </div>
     </div>
     """)
 
+
+    # ========================================================
+    # MANUAL IMAGE PREDICTION
+    # ========================================================
+
     st.html("""
     <div class="section-title">
-        📤 Manual Image Analysis
+        📤 Manual Image Prediction
     </div>
     """)
 
-    upload_col, preview_col = st.columns([1, 1])
+    upload_col, result_col = st.columns(
+        [1.15, 0.85]
+    )
+
+
+    # --------------------------------------------------------
+    # UPLOAD SECTION
+    # --------------------------------------------------------
 
     with upload_col:
+
         st.html("""
-        <div class="panel">
-            <div class="panel-heading">
-                <div>
-                    <div class="panel-title">
-                        🌿 Upload Plant Image
-                    </div>
-                    <div class="panel-subtitle">
-                        Select a leaf image to test the CropIQ ML model.
-                    </div>
-                </div>
-                <div class="live-badge">
-                    AI TEST
-                </div>
+        <div class="manual-upload-card">
+            <div class="manual-upload-title">
+                📷 Upload Plant Image
+            </div>
+
+            <div class="manual-upload-subtitle">
+                Upload a plant leaf image and check
+                the CropIQ ML model prediction.
             </div>
         </div>
         """)
 
         uploaded_file = st.file_uploader(
-            "Choose a plant image",
-            type=["jpg", "jpeg", "png"],
-            key="manual_plant_upload",
+            "Choose an image",
+            type=[
+                "jpg",
+                "jpeg",
+                "png"
+            ],
+            key="manual_prediction_upload"
         )
 
-        analyze_button = False
 
         if uploaded_file is not None:
-            st.success(f"Image selected: {uploaded_file.name}")
 
-            analyze_button = st.button(
-                "🔍 ANALYZE IMAGE",
-                type="primary",
-                use_container_width=True,
-                key="manual_analyze",
+            st.image(
+                uploaded_file,
+                caption="Uploaded Plant Image",
+                use_container_width=True
             )
 
-    with preview_col:
-        if uploaded_file is not None:
-            st.html("""
-            <div class="panel">
-                <div class="panel-title">
-                    📷 Image Preview
-                </div>
-            </div>
-            """)
 
-            st.image(uploaded_file, use_container_width=True)
+            if st.button(
+                "🔍 CHECK ML PREDICTION",
+                type="primary",
+                use_container_width=True,
+                key="manual_predict_button"
+            ):
 
-        else:
-            st.html("""
-            <div class="camera-placeholder">
-                <div>
-                    <div class="camera-icon">🌿</div>
-                    <div>No image selected</div>
-                    <div style="
-                        font-size:11px;
-                        margin-top:5px;
-                        color:#91a49b;
-                    ">
-                        Upload a plant image to begin AI analysis
-                    </div>
-                </div>
-            </div>
-            """)
+                with st.spinner(
+                    "Analyzing image with CropIQ AI..."
+                ):
 
-    # --------------------------------------------------------
-    # RUN ML MODEL
-    # --------------------------------------------------------
-
-    if uploaded_file is not None and analyze_button:
-
-        with st.spinner("🤖 Analyzing image with CropIQ AI..."):
-            response = predict_manual_image(uploaded_file)
-
-        if response is not None:
-
-            if response.status_code == 200:
-                try:
-                    result = response.json()
-                    st.session_state["manual_prediction"] = result
-                    st.success("✅ AI analysis completed successfully.")
-                except Exception:
-                    st.error(
-                        "The backend returned an invalid JSON prediction."
+                    response = predict_manual_image(
+                        uploaded_file
                     )
 
-            else:
-                st.error(
-                    f"Prediction failed ({response.status_code}): "
-                    f"{response.text}"
-                )
+
+                if response is not None:
+
+                    if response.status_code == 200:
+
+                        try:
+                            result = response.json()
+
+                            prediction = result.get(
+                                "prediction",
+                                "Unknown"
+                            )
+
+                            confidence = float(
+                                result.get(
+                                    "confidence",
+                                    0
+                                )
+                            )
+
+                            st.session_state[
+                                "manual_prediction"
+                            ] = prediction
+
+                            st.session_state[
+                                "manual_confidence"
+                            ] = confidence
+
+                            st.success(
+                                "✅ Image analyzed successfully."
+                            )
+
+                        except Exception as e:
+
+                            st.error(
+                                f"Invalid prediction response: {e}"
+                            )
+
+                    else:
+
+                        try:
+
+                            error_data = response.json()
+
+                            error_message = (
+                                error_data.get(
+                                    "detail",
+                                    "Prediction failed."
+                                )
+                            )
+
+                        except Exception:
+
+                            error_message = (
+                                response.text
+                            )
+
+                        st.error(
+                            f"Prediction failed: "
+                            f"{error_message}"
+                        )
+
 
     # --------------------------------------------------------
-    # DISPLAY PREDICTION
+    # RESULT SECTION
     # --------------------------------------------------------
 
-    if "manual_prediction" in st.session_state:
-
-        result = st.session_state["manual_prediction"]
+    with result_col:
 
         st.html("""
-        <div class="section-title">
-            🧠 ML Prediction Result
+        <div class="manual-upload-card">
+            <div class="manual-upload-title">
+                🤖 ML Prediction
+            </div>
+
+            <div class="manual-upload-subtitle">
+                Model prediction and confidence.
+            </div>
         </div>
         """)
 
-        plant = result.get(
-            "plant",
-            result.get("plant_type", "Unknown")
-        )
 
-        disease = result.get(
-            "disease",
-            result.get("prediction", "Unknown")
-        )
+        if (
+            "manual_prediction"
+            in st.session_state
+        ):
 
-        confidence = result.get(
-            "confidence",
-            result.get("confidence_score", 0)
-        )
+            prediction = (
+                st.session_state[
+                    "manual_prediction"
+                ]
+            )
 
-        infection = result.get(
-            "infection_percentage",
-            result.get("infection", "Not available")
-        )
+            confidence = float(
+                st.session_state[
+                    "manual_confidence"
+                ]
+            )
 
-        pesticide = result.get(
-            "pesticide",
-            "Not available"
-        )
+            display_prediction = (
+                str(prediction)
+                .replace("_", " ")
+            )
 
-        dose = result.get(
-            "dose_ml",
-            result.get("dose", "Not available")
-        )
 
-        try:
-            confidence_value = float(confidence)
-
-            if confidence_value <= 1:
-                confidence_display = confidence_value * 100
-            else:
-                confidence_display = confidence_value
-
-        except (TypeError, ValueError):
-            confidence_display = 0
-
-        r1, r2, r3 = st.columns(3)
-
-        with r1:
             st.html(f"""
-            <div class="ai-card">
-                <div class="ai-title">
-                    🌿 Plant
-                </div>
-                <div class="ai-label">
-                    DETECTED PLANT
-                </div>
-                <div class="ai-value">
-                    {plant}
-                </div>
-                <div class="ai-text">
-                    Plant identified by the ML model.
-                </div>
-            </div>
-            """)
+            <div class="manual-result">
 
-        with r2:
-            st.html(f"""
-            <div class="ai-card ai-alert">
-                <div class="ai-title">
-                    🔬 Disease
+                <div class="manual-result-label">
+                    PREDICTED CONDITION
                 </div>
-                <div class="ai-label">
-                    DETECTED CONDITION
-                </div>
-                <div class="ai-value">
-                    {disease}
-                </div>
-                <div class="ai-text">
-                    Disease classification from the uploaded image.
-                </div>
-            </div>
-            """)
 
-        with r3:
-            st.html(f"""
-            <div class="ai-card ai-recommend">
-                <div class="ai-title">
-                    🎯 Confidence
+                <div class="manual-result-value">
+                    {display_prediction}
                 </div>
-                <div class="ai-label">
+
+                <div class="manual-result-label">
                     MODEL CONFIDENCE
                 </div>
-                <div class="ai-value">
-                    {confidence_display:.2f}%
+
+                <div class="manual-confidence">
+                    {confidence:.2f}%
                 </div>
-                <div class="ai-text">
-                    Confidence reported by the ML model.
+
+                <div class="manual-model-note">
+                    Prediction generated by the
+                    CropIQ EfficientNetB0 model.
                 </div>
+
             </div>
             """)
 
-        st.write("")
-
-        b1, b2, b3 = st.columns(3)
-
-        with b1:
-            st.metric("🦠 Infection", infection)
-
-        with b2:
-            st.metric("🧪 Pesticide", pesticide)
-
-        with b3:
-            dose_text = (
-                f"{dose} ml"
-                if str(dose).replace(".", "", 1).isdigit()
-                else str(dose)
+            st.progress(
+                max(
+                    0.0,
+                    min(
+                        confidence / 100.0,
+                        1.0
+                    )
+                )
             )
-            st.metric("💧 Recommended Dose", dose_text)
 
-        with st.expander("🔧 View ML Backend Response"):
-            st.json(result)
+        else:
+
+            st.info(
+                "Upload an image and click "
+                "'CHECK ML PREDICTION'."
+            )
 
 
+    # ========================================================
+    # RASPBERRY PI IMAGE
+    # ========================================================
+
+    st.html("""
+    <div class="section-title">
+        📷 Raspberry Pi Captured Image
+    </div>
+    """)
+
+    image = get_latest_image()
+
+
+    if image is not None:
+
+        st.image(
+            image,
+            caption="Latest image captured by Raspberry Pi",
+            use_container_width=True
+        )
+
+    else:
+
+        st.info(
+            "No Raspberry Pi image available yet."
+        )
+
+
+    # ========================================================
+    # AI INFORMATION
+    # ========================================================
+
+    st.html("""
+    <div class="section-title">
+        🌿 AI Detection Information
+    </div>
+    """)
+
+
+    a1, a2, a3 = st.columns(3)
+
+
+    with a1:
+
+        st.html("""
+        <div class="ai-card">
+
+            <div class="ai-title">
+                🧠 ML Model
+            </div>
+
+            <div class="ai-label">
+                ARCHITECTURE
+            </div>
+
+            <div class="ai-value">
+                EfficientNetB0
+            </div>
+
+            <div class="ai-text">
+                CropIQ plant disease classification
+                model used for image prediction.
+            </div>
+
+        </div>
+        """)
+
+
+    with a2:
+
+        st.html("""
+        <div class="ai-card ai-alert">
+
+            <div class="ai-title">
+                📐 Image Processing
+            </div>
+
+            <div class="ai-label">
+                INPUT SIZE
+            </div>
+
+            <div class="ai-value">
+                224 × 224
+            </div>
+
+            <div class="ai-text">
+                Uploaded images are resized before
+                being passed to the ML model.
+            </div>
+
+        </div>
+        """)
+
+
+    with a3:
+
+        st.html("""
+        <div class="ai-card ai-recommend">
+
+            <div class="ai-title">
+                🌱 Classification
+            </div>
+
+            <div class="ai-label">
+                SUPPORTED CLASSES
+            </div>
+
+            <div class="ai-value">
+                7 Classes
+            </div>
+
+            <div class="ai-text">
+                Guava and Pomegranate plant
+                health and disease classes.
+            </div>
+
+        </div>
+        """)
+
+
+    # ========================================================
+    # AI WORKFLOW
+    # ========================================================
+
+    st.html("""
+    <div class="section-title">
+        🔄 AI Prediction Workflow
+    </div>
+    """)
+
+
+    st.html('<div class="workflow">')
+
+    w1, w2, w3, w4 = st.columns(4)
+
+
+    workflow = [
+
+        (
+            w1,
+            "01",
+            "📤",
+            "Upload",
+            "Select a plant image manually."
+        ),
+
+        (
+            w2,
+            "02",
+            "🖼️",
+            "Process",
+            "Resize the image to 224 × 224."
+        ),
+
+        (
+            w3,
+            "03",
+            "🧠",
+            "Predict",
+            "EfficientNetB0 classifies the plant condition."
+        ),
+
+        (
+            w4,
+            "04",
+            "📊",
+            "Result",
+            "Display the predicted condition and confidence."
+        )
+
+    ]
+
+
+    for (
+        column,
+        number,
+        icon,
+        title,
+        text
+    ) in workflow:
+
+        with column:
+
+            st.html(f"""
+            <div class="workflow-step">
+
+                <div class="step-number">
+                    {number}
+                </div>
+
+                <div class="step-icon">
+                    {icon}
+                </div>
+
+                <div class="step-title">
+                    {title}
+                </div>
+
+                <div class="step-text">
+                    {text}
+                </div>
+
+            </div>
+            """)
+
+
+    st.html("</div>")
+
+
+# ============================================================
 # SETTINGS
 # ============================================================
 
@@ -2414,4 +2730,3 @@ st.html("""
     AI-Powered Targeted Spraying
 </div>
 """)
-
