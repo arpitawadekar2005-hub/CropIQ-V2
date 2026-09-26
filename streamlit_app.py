@@ -669,74 +669,6 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-chil
 
 
 /* ============================================================
-   MANUAL AI IMAGE UPLOAD
-   ============================================================ */
-
-.manual-upload-card {
-    background: white;
-    border: 1px solid #dfe8e3;
-    border-radius: 18px;
-    padding: 18px;
-    box-shadow: 0 6px 20px rgba(25,70,48,0.05);
-}
-
-.manual-upload-title {
-    color: #073e33;
-    font-size: 18px;
-    font-weight: 850;
-    margin-bottom: 5px;
-}
-
-.manual-upload-subtitle {
-    color: #7c8782;
-    font-size: 11px;
-    line-height: 1.5;
-}
-
-.manual-result {
-    background: linear-gradient(
-        135deg,
-        #eefaf2,
-        #ffffff
-    );
-    border: 1px solid #cce8d5;
-    border-radius: 16px;
-    padding: 18px;
-}
-
-.manual-result-label {
-    color: #75817b;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.5px;
-    margin-top: 8px;
-}
-
-.manual-result-value {
-    color: #073e33;
-    font-size: 21px;
-    font-weight: 850;
-    margin-top: 5px;
-    line-height: 1.25;
-    word-break: break-word;
-}
-
-.manual-confidence {
-    color: #087d3f;
-    font-size: 27px;
-    font-weight: 850;
-    margin-top: 4px;
-}
-
-.manual-model-note {
-    color: #75817b;
-    font-size: 10px;
-    line-height: 1.5;
-    margin-top: 12px;
-}
-
-
-/* ============================================================
    STREAMLIT CONTROLS
    ============================================================ */
 
@@ -996,36 +928,6 @@ div[data-testid="stAlert"] {
         font-size: 9px !important;
     }
 
-    .manual-upload-card {
-        padding: 12px !important;
-        border-radius: 13px !important;
-    }
-
-    .manual-upload-title {
-        font-size: 14px !important;
-    }
-
-    .manual-upload-subtitle {
-        font-size: 9px !important;
-    }
-
-    .manual-result {
-        padding: 12px !important;
-        border-radius: 13px !important;
-    }
-
-    .manual-result-label {
-        font-size: 8px !important;
-    }
-
-    .manual-result-value {
-        font-size: 16px !important;
-    }
-
-    .manual-confidence {
-        font-size: 22px !important;
-    }
-
     /* Workflow */
     .workflow {
         padding: 11px !important;
@@ -1207,50 +1109,6 @@ def get_latest_image():
     return None
 
 
-def predict_manual_image(uploaded_file):
-    """
-    Send a manually uploaded image to the backend ML
-    prediction endpoint without replacing the Raspberry
-    Pi's latest captured image.
-    """
-
-    try:
-        image_bytes = uploaded_file.getvalue()
-
-        files = {
-            "file": (
-                uploaded_file.name,
-                image_bytes,
-                uploaded_file.type or "image/jpeg"
-            )
-        }
-
-        response = requests.post(
-            BACKEND_URL + "/predict-manual",
-            files=files,
-            timeout=30
-        )
-
-        return response
-
-    except requests.exceptions.Timeout:
-        st.error(
-            "The AI backend took too long to respond."
-        )
-
-    except requests.exceptions.ConnectionError:
-        st.error(
-            "Could not connect to the CropIQ AI backend."
-        )
-
-    except Exception as e:
-        st.error(
-            f"Prediction error: {e}"
-        )
-
-    return None
-
-
 # ============================================================
 # CAMERA FRAGMENT
 # Only the camera area reruns when a capture is requested.
@@ -1398,7 +1256,7 @@ if state:
         state.get("sprayed_amount", 0.0)
     )
 
-    raspberry_online = raspberry.get("online", False)
+    raspberry_online = raspberry.get("online", True)
     image_available = raspberry.get("image_available", False)
     esp32_online = esp32.get("online", False)
 
@@ -2229,439 +2087,80 @@ elif page == "🌿 AI Detection":
         </div>
 
         <div class="hero-subtitle">
-            AI-powered plant disease detection using
-            the CropIQ EfficientNetB0 model.
+            AI-powered disease detection and
+            targeted treatment recommendation.
         </div>
-    </div>
-    """)
-
-
-    # ========================================================
-    # MANUAL IMAGE PREDICTION
-    # ========================================================
-
-    st.html("""
-    <div class="section-title">
-        📤 Manual Image Prediction
-    </div>
-    """)
-
-    upload_col, result_col = st.columns(
-        [1.15, 0.85]
-    )
-
-
-    # --------------------------------------------------------
-    # UPLOAD SECTION
-    # --------------------------------------------------------
-
-    with upload_col:
-
-        st.html("""
-        <div class="manual-upload-card">
-            <div class="manual-upload-title">
-                📷 Upload Plant Image
-            </div>
-
-            <div class="manual-upload-subtitle">
-                Upload a plant leaf image and check
-                the CropIQ ML model prediction.
-            </div>
-        </div>
-        """)
-
-        uploaded_file = st.file_uploader(
-            "Choose an image",
-            type=[
-                "jpg",
-                "jpeg",
-                "png"
-            ],
-            key="manual_prediction_upload"
-        )
-
-
-        if uploaded_file is not None:
-
-            st.image(
-                uploaded_file,
-                caption="Uploaded Plant Image",
-                use_container_width=True
-            )
-
-
-            if st.button(
-                "🔍 CHECK ML PREDICTION",
-                type="primary",
-                use_container_width=True,
-                key="manual_predict_button"
-            ):
-
-                with st.spinner(
-                    "Analyzing image with CropIQ AI..."
-                ):
-
-                    response = predict_manual_image(
-                        uploaded_file
-                    )
-
-
-                if response is not None:
-
-                    if response.status_code == 200:
-
-                        try:
-                            result = response.json()
-
-                            prediction = result.get(
-                                "prediction",
-                                "Unknown"
-                            )
-
-                            confidence = float(
-                                result.get(
-                                    "confidence",
-                                    0
-                                )
-                            )
-
-                            st.session_state[
-                                "manual_prediction"
-                            ] = prediction
-
-                            st.session_state[
-                                "manual_confidence"
-                            ] = confidence
-
-                            st.success(
-                                "✅ Image analyzed successfully."
-                            )
-
-                        except Exception as e:
-
-                            st.error(
-                                f"Invalid prediction response: {e}"
-                            )
-
-                    else:
-
-                        try:
-
-                            error_data = response.json()
-
-                            error_message = (
-                                error_data.get(
-                                    "detail",
-                                    "Prediction failed."
-                                )
-                            )
-
-                        except Exception:
-
-                            error_message = (
-                                response.text
-                            )
-
-                        st.error(
-                            f"Prediction failed: "
-                            f"{error_message}"
-                        )
-
-
-    # --------------------------------------------------------
-    # RESULT SECTION
-    # --------------------------------------------------------
-
-    with result_col:
-
-        st.html("""
-        <div class="manual-upload-card">
-            <div class="manual-upload-title">
-                🤖 ML Prediction
-            </div>
-
-            <div class="manual-upload-subtitle">
-                Model prediction and confidence.
-            </div>
-        </div>
-        """)
-
-
-        if (
-            "manual_prediction"
-            in st.session_state
-        ):
-
-            prediction = (
-                st.session_state[
-                    "manual_prediction"
-                ]
-            )
-
-            confidence = float(
-                st.session_state[
-                    "manual_confidence"
-                ]
-            )
-
-            display_prediction = (
-                str(prediction)
-                .replace("_", " ")
-            )
-
-
-            st.html(f"""
-            <div class="manual-result">
-
-                <div class="manual-result-label">
-                    PREDICTED CONDITION
-                </div>
-
-                <div class="manual-result-value">
-                    {display_prediction}
-                </div>
-
-                <div class="manual-result-label">
-                    MODEL CONFIDENCE
-                </div>
-
-                <div class="manual-confidence">
-                    {confidence:.2f}%
-                </div>
-
-                <div class="manual-model-note">
-                    Prediction generated by the
-                    CropIQ EfficientNetB0 model.
-                </div>
-
-            </div>
-            """)
-
-            st.progress(
-                max(
-                    0.0,
-                    min(
-                        confidence / 100.0,
-                        1.0
-                    )
-                )
-            )
-
-        else:
-
-            st.info(
-                "Upload an image and click "
-                "'CHECK ML PREDICTION'."
-            )
-
-
-    # ========================================================
-    # RASPBERRY PI IMAGE
-    # ========================================================
-
-    st.html("""
-    <div class="section-title">
-        📷 Raspberry Pi Captured Image
     </div>
     """)
 
     image = get_latest_image()
 
-
     if image is not None:
-
         st.image(
             image,
-            caption="Latest image captured by Raspberry Pi",
             use_container_width=True
         )
-
     else:
-
-        st.info(
-            "No Raspberry Pi image available yet."
-        )
-
-
-    # ========================================================
-    # AI INFORMATION
-    # ========================================================
-
-    st.html("""
-    <div class="section-title">
-        🌿 AI Detection Information
-    </div>
-    """)
-
+        st.info("Capture a plant image first.")
 
     a1, a2, a3 = st.columns(3)
 
-
     with a1:
-
         st.html("""
         <div class="ai-card">
-
             <div class="ai-title">
-                🧠 ML Model
+                🌿 Plant Analysis
             </div>
-
             <div class="ai-label">
-                ARCHITECTURE
+                STATUS
             </div>
-
             <div class="ai-value">
-                EfficientNetB0
+                Awaiting Analysis
             </div>
-
             <div class="ai-text">
-                CropIQ plant disease classification
-                model used for image prediction.
+                AI analysis will appear here
+                after image processing.
             </div>
-
         </div>
         """)
-
 
     with a2:
-
         st.html("""
         <div class="ai-card ai-alert">
-
             <div class="ai-title">
-                📐 Image Processing
+                🔬 Disease Detection
             </div>
-
             <div class="ai-label">
-                INPUT SIZE
+                CONDITION
             </div>
-
             <div class="ai-value">
-                224 × 224
+                No analysis available
             </div>
-
             <div class="ai-text">
-                Uploaded images are resized before
-                being passed to the ML model.
+                Connect your disease detection
+                model to display diagnosis.
             </div>
-
         </div>
         """)
-
 
     with a3:
-
         st.html("""
         <div class="ai-card ai-recommend">
-
             <div class="ai-title">
-                🌱 Classification
+                💡 Recommendation
             </div>
-
             <div class="ai-label">
-                SUPPORTED CLASSES
+                ACTION
             </div>
-
             <div class="ai-value">
-                7 Classes
+                Awaiting Detection
             </div>
-
             <div class="ai-text">
-                Guava and Pomegranate plant
-                health and disease classes.
+                Treatment recommendation will
+                appear here.
             </div>
-
         </div>
         """)
-
-
-    # ========================================================
-    # AI WORKFLOW
-    # ========================================================
-
-    st.html("""
-    <div class="section-title">
-        🔄 AI Prediction Workflow
-    </div>
-    """)
-
-
-    st.html('<div class="workflow">')
-
-    w1, w2, w3, w4 = st.columns(4)
-
-
-    workflow = [
-
-        (
-            w1,
-            "01",
-            "📤",
-            "Upload",
-            "Select a plant image manually."
-        ),
-
-        (
-            w2,
-            "02",
-            "🖼️",
-            "Process",
-            "Resize the image to 224 × 224."
-        ),
-
-        (
-            w3,
-            "03",
-            "🧠",
-            "Predict",
-            "EfficientNetB0 classifies the plant condition."
-        ),
-
-        (
-            w4,
-            "04",
-            "📊",
-            "Result",
-            "Display the predicted condition and confidence."
-        )
-
-    ]
-
-
-    for (
-        column,
-        number,
-        icon,
-        title,
-        text
-    ) in workflow:
-
-        with column:
-
-            st.html(f"""
-            <div class="workflow-step">
-
-                <div class="step-number">
-                    {number}
-                </div>
-
-                <div class="step-icon">
-                    {icon}
-                </div>
-
-                <div class="step-title">
-                    {title}
-                </div>
-
-                <div class="step-text">
-                    {text}
-                </div>
-
-            </div>
-            """)
-
-
-    st.html("</div>")
 
 
 # ============================================================
