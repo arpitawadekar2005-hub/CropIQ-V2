@@ -8,3 +8,4 @@
 *.txt filter=lfs diff=lfs merge=lfs -text
 *.ino filter=lfs diff=lfs merge=lfs -text
 *.h filter=lfs diff=lfs merge=lfs -text
+*.pth filter=lfs diff=lfs merge=lfs -text
