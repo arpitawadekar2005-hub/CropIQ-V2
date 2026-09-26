@@ -7,9 +7,56 @@ from fastapi import (
     WebSocketDisconnect
 )
 
-from fastapi.responses import Response
+import io
+import numpy as np
+import tensorflow as tf
+from PIL import Image
 
+from fastapi.responses import Response
 from pydantic import BaseModel
+# =====================================================
+# AI MODEL
+# =====================================================
+
+# =====================================================
+# AI MODEL
+# =====================================================
+
+MODEL_PATH = "model/cropiq_final_efficientnetb0.keras"
+
+class_names = [
+    "Guava_Anthracnose",
+    "Guava_fruit_fly",
+    "Guava_healthy_guava",
+    "Pomegranate_Alternaria",
+    "Pomegranate_Anthracnose",
+    "Pomegranate_Cercospora",
+    "Pomegranate_Healthy"
+]
+
+model = tf.keras.models.load_model(MODEL_PATH)
+
+print("CropIQ AI model loaded successfully")
+
+
+def predict_image(image_data):
+    image = Image.open(io.BytesIO(image_data)).convert("RGB")
+
+    image = image.resize((224, 224))
+
+    image_array = np.array(image, dtype=np.float32)
+
+    image_array = np.expand_dims(image_array, axis=0)
+
+    predictions = model.predict(image_array, verbose=0)
+
+    predicted_index = int(np.argmax(predictions[0]))
+
+    confidence = float(predictions[0][predicted_index]) * 100
+
+    predicted_class = class_names[predicted_index]
+
+    return predicted_class, confidence
 
 
 # =====================================================
@@ -37,6 +84,9 @@ sprayed_amount = 0.0
 latest_image = None
 
 latest_image_type = "image/jpeg"
+
+ai_prediction = None
+ai_confidence = 0.0
 
 
 # =====================================================
@@ -400,8 +450,9 @@ async def upload_image(
 ):
 
     global latest_image
-
     global latest_image_type
+    global ai_prediction
+    global ai_confidence
 
 
     image_data = await file.read()
@@ -420,6 +471,8 @@ async def upload_image(
 
     latest_image = image_data
 
+    ai_prediction, ai_confidence = predict_image(image_data)
+
 
     latest_image_type = (
 
@@ -431,11 +484,10 @@ async def upload_image(
 
 
     return {
-
-        "message":
-        "Image uploaded successfully"
-
-    }
+    "message": "Image uploaded successfully",
+    "prediction": ai_prediction,
+    "confidence": ai_confidence
+}
 
 
 # =====================================================
