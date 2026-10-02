@@ -8,7 +8,6 @@ import numpy as np
 import onnxruntime as ort
 from fastapi import FastAPI, File, HTTPException, Response, UploadFile
 from PIL import Image
-from pydantic import BaseModel
 
 from dosage_engine import calculate_dosage
 
@@ -44,31 +43,32 @@ CLASS_DETAILS = {
     "Pomegranate_Healthy": {"crop": "Pomegranate", "disease": "Healthy"},
 }
 
-# Global ONNX Sessions & Thread Lock
 classifier_session = None
-segmenter_session = None
 ai_lock = threading.Lock()
 
+
+def get_onnx_options():
+    opts = ort.SessionOptions()
+    opts.intra_op_num_threads = 1
+    opts.inter_op_num_threads = 1
+    opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+    opts.enable_cpu_mem_arena = False  # Releases RAM back to OS immediately
+    return opts
+
+
 # =====================================================
-# LIFESPAN & ONNX SESSION LOADING
+# LIFESPAN MANAGEMENT
 # =====================================================
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global classifier_session, segmenter_session
-    opts = ort.SessionOptions()
-    opts.intra_op_num_threads = 1
-    opts.inter_op_num_threads = 1
-
-    print("Loading Lightweight ONNX Classifier...")
-    classifier_session = ort.InferenceSession(CLASSIFIER_PATH, sess_options=opts)
-
-    print("Loading Lightweight ONNX Segmenter...")
-    segmenter_session = ort.InferenceSession(UNET_MODEL_PATH, sess_options=opts)
-
+    global classifier_session
+    print("Loading ONNX Classifier Session...")
+    classifier_session = ort.InferenceSession(CLASSIFIER_PATH, sess_options=get_onnx_options())
     gc.collect()
     yield
     print("Shutting down CropIQ backend...")
+
 
 app = FastAPI(title="CropIQ API", lifespan=lifespan)
 
@@ -93,12 +93,14 @@ def predict_image(image_bytes: bytes):
     return predicted_class, confidence
 
 
-def segment_image(image_bytes: bytes):
+def segment_image_lazy(image_bytes: bytes):
+    # Lazy load segmenter on-demand to save idle RAM
+    segmenter_session = ort.InferenceSession(UNET_MODEL_PATH, sess_options=get_onnx_options())
+
     with Image.open(io.BytesIO(image_bytes)) as img:
         img = img.convert("RGB").resize((512, 512))
         image_array = np.array(img, dtype=np.float32)
 
-    # MobileNetV2 preprocessing normalization [-1, 1]
     image_array = (image_array / 127.5) - 1.0
     image_array = np.expand_dims(image_array, axis=0)
 
@@ -109,7 +111,8 @@ def segment_image(image_bytes: bytes):
     fruit_area = int(np.sum(pred_labels == 1))
     disease_area = int(np.sum(pred_labels == 2))
 
-    del image_array, preds, pred_labels
+    # Clean up immediately
+    del segmenter_session, image_array, preds, pred_labels
     gc.collect()
     return fruit_area, disease_area
 
@@ -169,8 +172,8 @@ def analyze_image(image_bytes: bytes):
                 "spray_required": False,
             }
 
-        # Disease segmentation step
-        fruit_area, disease_area = segment_image(image_bytes)
+        # Lazy segmentation for diseased cases only
+        fruit_area, disease_area = segment_image_lazy(image_bytes)
 
         segmentation_performed = True
         fruit_area_pixels = int(fruit_area)
