@@ -1,7 +1,7 @@
 fastapi
-uvicorn
-pillow
+uvicorn[standard]
+python-multipart
+requests
+tensorflow
 numpy
-pydantic
-onnxruntime
-pandas
+pillow
