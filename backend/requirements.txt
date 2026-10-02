@@ -1,7 +1,8 @@
 fastapi
-uvicorn
-pillow
+uvicorn[standard]
+python-multipart
+requests
 numpy
-pydantic
+pillow
 onnxruntime
 pandas
