@@ -10,6 +10,7 @@ from fastapi import (
 import gc
 import io
 import os
+import threading
 
 # Keep TensorFlow's CPU/thread memory overhead as low as practical on
 # Render's 512 MB free instance.
@@ -95,59 +96,58 @@ CLASS_DETAILS = {
     },
 }
 
-# Only one AI model is kept in memory at a time.
-classifier_model = None
-segmenter_model = None
+# =====================================================
+# STRICT SEQUENTIAL AI MEMORY MANAGEMENT
+# =====================================================
+# Render Free has a 512 MB memory limit.
+#
+# Important:
+# - No AI model is kept globally.
+# - A model is loaded only for the operation that needs it.
+# - The model is explicitly deleted immediately afterward.
+# - TensorFlow's session is cleared and Python garbage collection runs.
+# - The AI lock prevents two requests from loading models at the
+#   same time and multiplying the memory peak.
+
+ai_lock = threading.Lock()
 
 
 def load_classifier():
-    global classifier_model
-
-    if classifier_model is None:
-        print("Loading CropIQ EfficientNetB0 classifier...")
-        classifier_model = tf.keras.models.load_model(
-            CLASSIFIER_PATH,
-            compile=False,
-        )
-        print("CropIQ AI model loaded successfully")
-
-    return classifier_model
+    print("Loading CropIQ EfficientNetB0 classifier...")
+    model = tf.keras.models.load_model(
+        CLASSIFIER_PATH,
+        compile=False,
+    )
+    print("CropIQ AI model loaded successfully")
+    return model
 
 
-def unload_classifier():
-    global classifier_model
-
-    if classifier_model is not None:
-        del classifier_model
-        classifier_model = None
+def unload_classifier(model):
+    if model is not None:
+        del model
 
     tf.keras.backend.clear_session()
     gc.collect()
+    print("EfficientNetB0 released from memory")
 
 
 def load_segmenter():
-    global segmenter_model
-
-    if segmenter_model is None:
-        print("Loading CropIQ U-Net++ segmentation model...")
-        segmenter_model = tf.keras.models.load_model(
-            UNET_MODEL_PATH,
-            compile=False,
-        )
-        print("CropIQ U-Net++ model loaded successfully")
-
-    return segmenter_model
+    print("Loading CropIQ U-Net++ segmentation model...")
+    model = tf.keras.models.load_model(
+        UNET_MODEL_PATH,
+        compile=False,
+    )
+    print("CropIQ U-Net++ model loaded successfully")
+    return model
 
 
-def unload_segmenter():
-    global segmenter_model
-
-    if segmenter_model is not None:
-        del segmenter_model
-        segmenter_model = None
+def unload_segmenter(model):
+    if model is not None:
+        del model
 
     tf.keras.backend.clear_session()
     gc.collect()
+    print("U-Net++ released from memory")
 
 
 def predict_image(image_data):
@@ -157,25 +157,33 @@ def predict_image(image_data):
     image_array = np.array(image, dtype=np.float32)
     image_array = np.expand_dims(image_array, axis=0)
 
-    model = load_classifier()
+    model = None
 
-    predictions = model.predict(
-        image_array,
-        batch_size=1,
-        verbose=0,
-    )
+    try:
+        model = load_classifier()
 
-    predicted_index = int(np.argmax(predictions[0]))
-    confidence = float(predictions[0][predicted_index]) * 100.0
-    predicted_class = class_names[predicted_index]
+        predictions = model.predict(
+            image_array,
+            batch_size=1,
+            verbose=0,
+        )
 
-    # Return plain Python values; the model can then be released before
-    # U-Net++ is loaded.
-    del predictions
-    del image_array
-    gc.collect()
+        predicted_index = int(np.argmax(predictions[0]))
+        confidence = float(predictions[0][predicted_index]) * 100.0
+        predicted_class = class_names[predicted_index]
 
-    return predicted_class, confidence
+        return predicted_class, confidence
+
+    finally:
+        # Release classifier BEFORE the caller can load U-Net++.
+        del image_array
+        gc.collect()
+
+        if model is not None:
+            unload_classifier(model)
+            model = None
+
+        gc.collect()
 
 
 # =====================================================
@@ -229,25 +237,34 @@ def segment_image(image_data):
     )
     image_array = np.expand_dims(image_array, axis=0)
 
-    model = load_segmenter()
+    model = None
 
-    predictions = model.predict(
-        image_array,
-        batch_size=1,
-        verbose=0,
-    )
+    try:
+        model = load_segmenter()
 
-    pred_labels = np.argmax(predictions[0], axis=-1)
+        predictions = model.predict(
+            image_array,
+            batch_size=1,
+            verbose=0,
+        )
 
-    fruit_area = int(np.sum(pred_labels == 1))
-    disease_area = int(np.sum(pred_labels == 2))
+        pred_labels = np.argmax(predictions[0], axis=-1)
 
-    del predictions
-    del pred_labels
-    del image_array
-    gc.collect()
+        fruit_area = int(np.sum(pred_labels == 1))
+        disease_area = int(np.sum(pred_labels == 2))
 
-    return fruit_area, disease_area
+        return fruit_area, disease_area
+
+    finally:
+        # Release U-Net++ immediately after its prediction.
+        del image_array
+        gc.collect()
+
+        if model is not None:
+            unload_segmenter(model)
+            model = None
+
+        gc.collect()
 
 
 def calculate_dosage(crop, disease, severity_percent):
@@ -269,11 +286,19 @@ def calculate_dosage(crop, disease, severity_percent):
 def analyze_image(image_data):
     """Complete CropIQ pipeline.
 
-    1. EfficientNet classification
-    2. Healthy early-stop
-    3. U-Net++ segmentation for disease cases
-    4. Severity calculation
-    5. Dosage rule lookup
+    Strict memory sequence:
+
+    1. Load EfficientNetB0
+    2. Classify
+    3. Release EfficientNetB0
+    4. If healthy -> return immediately
+    5. Otherwise load U-Net++
+    6. Segment
+    7. Release U-Net++
+    8. Calculate severity and dosage
+
+    Only one AI analysis is allowed at a time so concurrent requests
+    cannot create multiple model copies and exceed Render memory.
     """
 
     global ai_prediction
@@ -308,23 +333,137 @@ def analyze_image(image_data):
     ai_message = "Analyzing image..."
 
     # -------------------------------------------------
-    # 1. CLASSIFICATION
+    # ONE AI REQUEST AT A TIME
     # -------------------------------------------------
+    with ai_lock:
 
-    try:
+        # -------------------------------------------------
+        # 1. CLASSIFICATION
+        # -------------------------------------------------
+        print("AI STEP 1/4: EfficientNetB0 classification")
+
         prediction, confidence = predict_image(image_data)
-    finally:
-        # Critical for the Render 512 MB instance: never keep
-        # EfficientNet resident while U-Net++ is loaded.
-        unload_classifier()
 
-    ai_prediction = prediction
-    ai_confidence = float(confidence)
+        # predict_image() has already released EfficientNetB0 here.
+        print("AI STEP 1 COMPLETE: EfficientNetB0 is released")
 
-    details = CLASS_DETAILS.get(prediction)
+        ai_prediction = prediction
+        ai_confidence = float(confidence)
 
-    if details is None:
-        ai_message = "Unknown classification returned by the AI model."
+        details = CLASS_DETAILS.get(prediction)
+
+        if details is None:
+            ai_message = "Unknown classification returned by the AI model."
+            return {
+                "message": ai_message,
+                "prediction": ai_prediction,
+                "confidence": ai_confidence,
+                "crop": ai_crop,
+                "disease": ai_disease,
+                "healthy": False,
+                "segmentation_performed": False,
+                "fruit_area_pixels": 0,
+                "disease_area_pixels": 0,
+                "severity_percent": 0.0,
+                "pesticide": None,
+                "base_dosage_ml": 0.0,
+                "recommended_dosage_ml": 0.0,
+                "spray_required": False,
+            }
+
+        ai_crop = details["crop"]
+        ai_disease = details["disease"]
+
+        # -------------------------------------------------
+        # 2. HEALTHY EARLY STOP
+        # -------------------------------------------------
+        if prediction in HEALTHY_CLASSES:
+            ai_is_healthy = True
+            ai_message = f"{ai_crop} is healthy. No spraying required."
+
+            print("AI STEP 2: Healthy classification -> stopping")
+            print("AI PIPELINE COMPLETE: No U-Net++ required")
+
+            return {
+                "message": ai_message,
+                "prediction": ai_prediction,
+                "confidence": ai_confidence,
+                "crop": ai_crop,
+                "disease": "Healthy",
+                "healthy": True,
+                "segmentation_performed": False,
+                "fruit_area_pixels": 0,
+                "disease_area_pixels": 0,
+                "severity_percent": 0.0,
+                "pesticide": None,
+                "base_dosage_ml": 0.0,
+                "recommended_dosage_ml": 0.0,
+                "spray_required": False,
+            }
+
+        # -------------------------------------------------
+        # 3. U-NET++ SEGMENTATION
+        # -------------------------------------------------
+        print("AI STEP 2/4: Disease classification -> continuing")
+        print("AI STEP 3/4: Loading U-Net++ AFTER EfficientNet release")
+
+        fruit_area, disease_area = segment_image(image_data)
+
+        # segment_image() has already released U-Net++ here.
+        print("AI STEP 3 COMPLETE: U-Net++ is released")
+
+        segmentation_performed = True
+        fruit_area_pixels = int(fruit_area)
+        disease_area_pixels = int(disease_area)
+
+        # Avoid division by zero if the model finds no fruit.
+        if fruit_area_pixels > 0:
+            severity_percent = (
+                disease_area_pixels / fruit_area_pixels
+            ) * 100.0
+        else:
+            severity_percent = 0.0
+
+        # Keep severity in a sensible percentage range.
+        severity_percent = max(
+            0.0,
+            min(100.0, float(severity_percent)),
+        )
+
+        # -------------------------------------------------
+        # 4. DOSAGE RULE
+        # -------------------------------------------------
+        print("AI STEP 4/4: Calculating severity and dosage")
+
+        pesticide, base_dosage_ml, recommended_dosage_ml = calculate_dosage(
+            ai_crop,
+            ai_disease,
+            severity_percent,
+        )
+
+        spray_required = (
+            pesticide is not None
+            and recommended_dosage_ml > 0.0
+        )
+
+        if pesticide is None:
+            ai_message = (
+                f"{ai_disease} detected, but no dosage rule is configured."
+            )
+            spray_required = False
+        elif spray_required:
+            ai_message = (
+                f"{ai_disease} detected. "
+                f"Severity: {severity_percent:.2f}%. "
+                f"Recommended dosage: {recommended_dosage_ml:.2f} ml."
+            )
+        else:
+            ai_message = (
+                f"{ai_disease} detected, but the calculated dosage is zero."
+            )
+
+        print("AI PIPELINE COMPLETE")
+
         return {
             "message": ai_message,
             "prediction": ai_prediction,
@@ -332,120 +471,15 @@ def analyze_image(image_data):
             "crop": ai_crop,
             "disease": ai_disease,
             "healthy": False,
-            "segmentation_performed": False,
-            "fruit_area_pixels": 0,
-            "disease_area_pixels": 0,
-            "severity_percent": 0.0,
-            "pesticide": None,
-            "base_dosage_ml": 0.0,
-            "recommended_dosage_ml": 0.0,
-            "spray_required": False,
+            "segmentation_performed": segmentation_performed,
+            "fruit_area_pixels": fruit_area_pixels,
+            "disease_area_pixels": disease_area_pixels,
+            "severity_percent": severity_percent,
+            "pesticide": pesticide,
+            "base_dosage_ml": base_dosage_ml,
+            "recommended_dosage_ml": recommended_dosage_ml,
+            "spray_required": spray_required,
         }
-
-    ai_crop = details["crop"]
-    ai_disease = details["disease"]
-
-    # -------------------------------------------------
-    # 2. HEALTHY EARLY STOP
-    # -------------------------------------------------
-
-    if prediction in HEALTHY_CLASSES:
-        ai_is_healthy = True
-        ai_message = f"{ai_crop} is healthy. No spraying required."
-
-        return {
-            "message": ai_message,
-            "prediction": ai_prediction,
-            "confidence": ai_confidence,
-            "crop": ai_crop,
-            "disease": "Healthy",
-            "healthy": True,
-            "segmentation_performed": False,
-            "fruit_area_pixels": 0,
-            "disease_area_pixels": 0,
-            "severity_percent": 0.0,
-            "pesticide": None,
-            "base_dosage_ml": 0.0,
-            "recommended_dosage_ml": 0.0,
-            "spray_required": False,
-        }
-
-    # -------------------------------------------------
-    # 3. U-NET++ SEGMENTATION
-    # -------------------------------------------------
-
-    try:
-        fruit_area, disease_area = segment_image(image_data)
-    finally:
-        # Do not leave the large segmentation model resident after
-        # the request has finished.
-        unload_segmenter()
-
-    segmentation_performed = True
-    fruit_area_pixels = int(fruit_area)
-    disease_area_pixels = int(disease_area)
-
-    # Avoid division by zero if the model finds no fruit.
-    if fruit_area_pixels > 0:
-        severity_percent = (
-            disease_area_pixels / fruit_area_pixels
-        ) * 100.0
-    else:
-        severity_percent = 0.0
-
-    # Keep severity in a sensible percentage range.
-    severity_percent = max(
-        0.0,
-        min(100.0, float(severity_percent)),
-    )
-
-    # -------------------------------------------------
-    # 4. DOSAGE RULE
-    # -------------------------------------------------
-
-    pesticide, base_dosage_ml, recommended_dosage_ml = calculate_dosage(
-        ai_crop,
-        ai_disease,
-        severity_percent,
-    )
-
-    spray_required = (
-        pesticide is not None
-        and recommended_dosage_ml > 0.0
-    )
-
-    if pesticide is None:
-        ai_message = (
-            f"{ai_disease} detected, but no dosage rule is configured."
-        )
-        spray_required = False
-    elif spray_required:
-        ai_message = (
-            f"{ai_disease} detected. "
-            f"Severity: {severity_percent:.2f}%. "
-            f"Recommended dosage: {recommended_dosage_ml:.2f} ml."
-        )
-    else:
-        ai_message = (
-            f"{ai_disease} detected, but the calculated dosage is zero."
-        )
-
-    return {
-        "message": ai_message,
-        "prediction": ai_prediction,
-        "confidence": ai_confidence,
-        "crop": ai_crop,
-        "disease": ai_disease,
-        "healthy": False,
-        "segmentation_performed": segmentation_performed,
-        "fruit_area_pixels": fruit_area_pixels,
-        "disease_area_pixels": disease_area_pixels,
-        "severity_percent": severity_percent,
-        "pesticide": pesticide,
-        "base_dosage_ml": base_dosage_ml,
-        "recommended_dosage_ml": recommended_dosage_ml,
-        "spray_required": spray_required,
-    }
 
 
 # =====================================================
