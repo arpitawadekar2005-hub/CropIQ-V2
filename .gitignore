@@ -8,3 +8,6 @@ secrets.h
 
 .vscode/
 .idea/
+
+*.pth
+*.keras
