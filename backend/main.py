@@ -133,8 +133,13 @@ def unload_classifier(model):
 
 def load_segmenter():
     print("Loading CropIQ U-Net++ segmentation model...")
+    
+    # Custom object scope handling to safely deserialize custom layers/losses if necessary.
+    custom_objects = {}
+    
     model = tf.keras.models.load_model(
         UNET_MODEL_PATH,
+        custom_objects=custom_objects,
         compile=False,
     )
     print("CropIQ U-Net++ model loaded successfully")
