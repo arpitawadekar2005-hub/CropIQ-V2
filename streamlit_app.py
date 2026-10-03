@@ -2,39 +2,62 @@ import streamlit as st
 import requests
 
 # =====================================================
-# CONFIGURATION & PAGE SETUP
+# CONFIGURATION
 # =====================================================
 
 BACKEND_URL = "https://cropiq-backend-mecl.onrender.com"
 
 st.set_page_config(
-    page_title="CropIQ - Precision Farming",
+    page_title="CropIQ",
     page_icon="🌿",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Custom CSS styling for CropIQ branding
+# Custom CSS matching exact original CropIQ styling
 st.markdown("""
-    <style>
-    .main {
-        background-color: #f8faf9;
+<style>
+    /* Dark Green Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #0b3b2b;
+        color: white;
     }
-    .stButton>button {
-        border-radius: 8px;
-        font-weight: bold;
+    [data-testid="stSidebar"] * {
+        color: white !important;
     }
-    .metric-card {
+    
+    /* Global Background */
+    .stApp {
+        background-color: #f4f7f5;
+    }
+    
+    /* White Card Containers */
+    div.stBlock {
         background-color: #ffffff;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        border-left: 5px solid #2e7d32;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
-    </style>
+
+    /* Target Buttons */
+    .stButton>button {
+        border-radius: 6px;
+        font-weight: 600;
+        height: 45px;
+    }
+    
+    /* Red Disease Text */
+    .disease-title {
+        color: #d93838;
+        font-weight: 800;
+        font-size: 20px;
+        letter-spacing: 0.5px;
+    }
+</style>
 """, unsafe_allow_html=True)
 
 # =====================================================
-# SESSION STATE INITIALIZATION
+# SESSION STATES
 # =====================================================
 
 if "dash_prediction" not in st.session_state:
@@ -43,197 +66,176 @@ if "dash_prediction" not in st.session_state:
 if "manual_prediction" not in st.session_state:
     st.session_state["manual_prediction"] = None
 
-if "last_manual_file" not in st.session_state:
-    st.session_state["last_manual_file"] = None
+if "last_uploaded_name" not in st.session_state:
+    st.session_state["last_uploaded_name"] = None
 
 # =====================================================
-# HELPER FUNCTIONS FOR API CALLS
+# SIDEBAR
 # =====================================================
 
-def fetch_latest_image():
-    """Gets the latest Raspberry Pi camera frame from backend."""
-    try:
-        res = requests.get(f"{BACKEND_URL}/latest-image", timeout=5)
-        if res.status_code == 200:
-            return res.content
-    except Exception:
-        pass
-    return None
+with st.sidebar:
+    st.markdown("<h1 style='text-align: center; margin-bottom: 0;'>🌿</h1>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; margin-top: 0;'>CropIQ</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; font-size: 12px; color: #a3c2b5;'>Precision Farming<br>for a Greener Tomorrow</p>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    page = st.radio(
+        "",
+        ["🏠 Dashboard", "📷 Live View", "🚜 Rover Control", "💧 Sprayer Control", "🌿 AI Detection", "⚙️ Settings"],
+        index=0,
+        label_visibility="collapsed"
+    )
 
-def trigger_pi_capture():
-    """Sends command to queue a Pi camera capture."""
-    try:
-        res = requests.post(f"{BACKEND_URL}/capture", timeout=5)
-        return res.status_code == 200
-    except Exception:
-        return False
-
-def run_pi_prediction():
-    """Runs AI inference on the captured Pi image."""
-    try:
-        res = requests.post(f"{BACKEND_URL}/predict-captured", timeout=30)
-        if res.status_code == 200:
-            return res.json()
-    except Exception as e:
-        st.error(f"Prediction failed: {e}")
-    return None
-
-def run_manual_prediction(image_bytes, filename):
-    """Runs AI inference on manually uploaded file."""
-    try:
-        files = {"file": (filename, image_bytes, "image/jpeg")}
-        res = requests.post(f"{BACKEND_URL}/predict-manual", files=files, timeout=30)
-        if res.status_code == 200:
-            return res.json()
-    except Exception as e:
-        st.error(f"Prediction failed: {e}")
-    return None
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    
+    # Raspberry Pi Status Widget
+    st.markdown("""
+        <div style="background-color: #062b1f; padding: 12px; border-radius: 8px;">
+            <p style="font-size: 11px; margin: 0; color: #a3c2b5;">🍓 Raspberry Pi</p>
+            <p style="color: #ff4d4d; font-weight: bold; margin: 2px 0;">🔴 OFFLINE</p>
+            <p style="font-size: 11px; margin: 0;">System Status: <b style="color: #ffffff;">Disconnected</b></p>
+        </div>
+    """, unsafe_allow_html=True)
 
 # =====================================================
-# SIDEBAR NAVIGATION
-# =====================================================
-
-st.sidebar.title("🌿 CropIQ")
-st.sidebar.caption("Precision Farming for a Greener Tomorrow")
-
-page = st.sidebar.radio(
-    "Navigation", 
-    ["🏠 Dashboard", "🌿 AI Detection", "🚜 Rover Control", "⚙️ Settings"]
-)
-
-# =====================================================
-# PAGE 1: DASHBOARD & RASPBERRY PI CAM
+# PAGE 1: DASHBOARD
 # =====================================================
 
 if page == "🏠 Dashboard":
-    st.title("🏠 Dashboard & Camera Control")
-    st.caption("Monitor camera stream and run real-time AI diagnosis.")
-
-    col1, col2 = st.columns([1.2, 0.8])
+    col1, col2 = st.columns([1.3, 0.7])
 
     with col1:
-        st.subheader("📷 Live Camera Feed")
+        # Camera Feed Block
+        st.markdown("### 📷 Live Camera Feed")
         
-        captured_img = fetch_latest_image()
-        
-        if captured_img:
-            st.image(captured_img, caption="Latest Captured Frame", use_container_width=True)
-        else:
-            st.info("No captured image available from Raspberry Pi.")
+        # Try loading current Raspberry Pi camera image
+        try:
+            img_res = requests.get(f"{BACKEND_URL}/latest-image", timeout=3)
+            if img_res.status_code == 200:
+                st.image(img_res.content, use_container_width=True)
+            else:
+                st.info("No captured camera stream available.")
+        except Exception:
+            st.info("Waiting for image from backend...")
 
-        btn_col1, btn_col2 = st.columns(2)
+        # Action Buttons
+        if st.button("📸 CAPTURE PLANT IMAGE", use_container_width=True, type="primary"):
+            try:
+                requests.post(f"{BACKEND_URL}/capture", timeout=5)
+                st.session_state["dash_prediction"] = None  # Reset stale prediction
+                st.toast("Capture trigger sent to Pi!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error triggering capture: {e}")
 
-        with btn_col1:
-            if st.button("📸 CAPTURE PLANT IMAGE", use_container_width=True, type="primary"):
-                with st.spinner("Triggering Raspberry Pi Camera..."):
-                    if trigger_pi_capture():
-                        st.session_state["dash_prediction"] = None  # Reset prediction for new image
-                        st.success("Capture command sent!")
+        st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+
+        if st.button("🔍 RUN AI PREDICTION", use_container_width=True):
+            with st.spinner("Analyzing image..."):
+                try:
+                    res = requests.post(f"{BACKEND_URL}/predict-captured", timeout=20)
+                    if res.status_code == 200:
+                        st.session_state["dash_prediction"] = res.json()
                         st.rerun()
                     else:
-                        st.error("Failed to connect to Raspberry Pi.")
-
-        with btn_col2:
-            if st.button("🔍 RUN AI PREDICTION", use_container_width=True):
-                if captured_img:
-                    with st.spinner("Executing AI Model Inference..."):
-                        result = run_pi_prediction()
-                        if result:
-                            st.session_state["dash_prediction"] = result
-                            st.rerun()
-                else:
-                    st.warning("Please capture an image first!")
+                        st.error("Could not run prediction on captured frame.")
+                except Exception as e:
+                    st.error(f"Prediction failed: {e}")
 
     with col2:
-        st.subheader("PLANT ANALYSIS")
+        st.markdown("<p style='font-weight: 700; color: #333; margin-bottom: 5px;'>PLANT ANALYSIS</p>", unsafe_allow_html=True)
         
         pred = st.session_state["dash_prediction"]
-        
+
         if pred:
-            is_healthy = pred.get("prediction", "").lower() == "healthy"
-            
+            is_healthy = "healthy" in pred.get("prediction", "").lower()
+
             if is_healthy:
-                st.success("### HEALTHY PLANT DETECTED")
+                st.markdown("<p style='color: #2e7d32; font-weight: 800; font-size: 20px;'>HEALTHY PLANT</p>", unsafe_allow_html=True)
             else:
-                st.error("### DISEASE DETECTED")
+                st.markdown("<p class='disease-title'>DISEASE DETECTED</p>", unsafe_allow_html=True)
 
-            st.write(f"**Crop:** {pred.get('crop', 'N/A')}")
-            st.write(f"**Disease:** {pred.get('prediction', 'N/A')}")
-            st.write(f"**Confidence:** {pred.get('confidence', 0)}%")
-            st.write(f"**Severity:** {pred.get('disease_area_percentage', 0)}%")
-            st.write(f"**Recommended Pesticide:** {pred.get('pesticide_name', 'None')}")
+            st.markdown(f"**Crop:** <span style='float: right;'><b>{pred.get('crop', '-')}</b></span>", unsafe_allow_html=True)
+            st.markdown(f"**Disease:** <span style='float: right;'><b>{pred.get('prediction', '-')}</b></span>", unsafe_allow_html=True)
+            st.markdown(f"**Confidence:** <span style='float: right;'><b>{pred.get('confidence', 0)}%</b></span>", unsafe_allow_html=True)
+            st.markdown(f"**Severity:** <span style='float: right;'><b>{pred.get('disease_area_percentage', 0)}%</b></span>", unsafe_allow_html=True)
+            st.markdown(f"**Pesticide:** <span style='float: right;'><b>{pred.get('pesticide_name', '-')}</b></span>", unsafe_allow_html=True)
 
-            st.metric(
-                label="RECOMMENDED DOSAGE",
-                value=f"{pred.get('recommended_dosage_ml', 0.0)} ml"
-            )
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Green Dosage Box
+            st.markdown(f"""
+                <div style="background-color: #eaf5ea; padding: 15px; border-radius: 8px; text-align: center;">
+                    <p style="color: #1e5e20; font-weight: 700; font-size: 12px; margin: 0;">RECOMMENDED DOSAGE:</p>
+                    <h2 style="color: #1e5e20; font-weight: 900; margin: 0;">{pred.get('recommended_dosage_ml', 0.0)} ml</h2>
+                </div>
+            """, unsafe_allow_html=True)
         else:
-            st.info("AWAITING PREDICTION\n\nClick **RUN AI PREDICTION** to evaluate current frame.")
+            st.info("Awaiting AI analysis. Click 'RUN AI PREDICTION' to analyze current frame.")
 
 # =====================================================
-# PAGE 2: MANUAL AI DETECTION
+# PAGE 2: AI DETECTION (MANUAL UPLOAD)
 # =====================================================
 
 elif page == "🌿 AI Detection":
-    st.title("🌿 AI Plant Detection & Analysis")
-    st.caption("Upload plant leaf images to execute AI diagnosis manually.")
+    st.markdown("## 🌿 AI Plant Detection & Analysis")
+    st.caption("Upload plant leaf images to execute AI diagnosis and automatically derive pesticide treatment dosages.")
 
-    col1, col2 = st.columns([1.2, 0.8])
+    col1, col2 = st.columns([1.3, 0.7])
 
     with col1:
-        st.subheader("📷 Upload Plant Image")
-        uploaded_file = st.file_uploader("Choose a leaf image...", type=["jpg", "jpeg", "png"])
+        st.markdown("### 📷 Upload Plant Image")
+        uploaded_file = st.file_uploader("Select a leaf image to run AI analysis.", type=["jpg", "jpeg", "png"])
 
         if uploaded_file is not None:
-            # If a new image is uploaded, clear old prediction state
-            if st.session_state["last_manual_file"] != uploaded_file.name:
-                st.session_state["last_manual_file"] = uploaded_file.name
+            # If new file is uploaded, reset old prediction
+            if st.session_state["last_uploaded_name"] != uploaded_file.name:
+                st.session_state["last_uploaded_name"] = uploaded_file.name
                 st.session_state["manual_prediction"] = None
 
             image_bytes = uploaded_file.getvalue()
-            st.image(image_bytes, caption="Uploaded Leaf Image", use_container_width=True)
+            st.image(image_bytes, use_container_width=True)
 
             if st.button("🔍 PROCESS AI INFERENCE", type="primary", use_container_width=True):
-                with st.spinner("Analyzing uploaded image..."):
-                    result = run_manual_prediction(image_bytes, uploaded_file.name)
-                    if result:
-                        st.session_state["manual_prediction"] = result
-                        st.rerun()
+                with st.spinner("Processing image..."):
+                    try:
+                        files = {"file": (uploaded_file.name, image_bytes, "image/jpeg")}
+                        res = requests.post(f"{BACKEND_URL}/predict-manual", files=files, timeout=20)
+                        if res.status_code == 200:
+                            st.session_state["manual_prediction"] = res.json()
+                            st.rerun()
+                        else:
+                            st.error("Prediction failed.")
+                    except Exception as e:
+                        st.error(f"Error connecting to server: {e}")
 
     with col2:
-        st.subheader("PLANT ANALYSIS")
+        st.markdown("<p style='font-weight: 700; color: #333; margin-bottom: 5px;'>PLANT ANALYSIS</p>", unsafe_allow_html=True)
 
         pred = st.session_state["manual_prediction"]
 
         if pred:
-            is_healthy = pred.get("prediction", "").lower() == "healthy"
+            is_healthy = "healthy" in pred.get("prediction", "").lower()
 
             if is_healthy:
-                st.success("### HEALTHY PLANT DETECTED")
+                st.markdown("<p style='color: #2e7d32; font-weight: 800; font-size: 20px;'>HEALTHY PLANT</p>", unsafe_allow_html=True)
             else:
-                st.error("### DISEASE DETECTED")
+                st.markdown("<p class='disease-title'>DISEASE DETECTED</p>", unsafe_allow_html=True)
 
-            st.write(f"**Crop:** {pred.get('crop', 'N/A')}")
-            st.write(f"**Disease:** {pred.get('prediction', 'N/A')}")
-            st.write(f"**Confidence:** {pred.get('confidence', 0)}%")
-            st.write(f"**Severity:** {pred.get('disease_area_percentage', 0)}%")
-            st.write(f"**Recommended Pesticide:** {pred.get('pesticide_name', 'None')}")
+            st.markdown(f"**Crop:** <span style='float: right;'><b>{pred.get('crop', '-')}</b></span>", unsafe_allow_html=True)
+            st.markdown(f"**Disease:** <span style='float: right;'><b>{pred.get('prediction', '-')}</b></span>", unsafe_allow_html=True)
+            st.markdown(f"**Confidence:** <span style='float: right;'><b>{pred.get('confidence', 0)}%</b></span>", unsafe_allow_html=True)
+            st.markdown(f"**Severity:** <span style='float: right;'><b>{pred.get('disease_area_percentage', 0)}%</b></span>", unsafe_allow_html=True)
+            st.markdown(f"**Pesticide:** <span style='float: right;'><b>{pred.get('pesticide_name', '-')}</b></span>", unsafe_allow_html=True)
 
-            st.metric(
-                label="RECOMMENDED DOSAGE",
-                value=f"{pred.get('recommended_dosage_ml', 0.0)} ml"
-            )
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            st.markdown(f"""
+                <div style="background-color: #eaf5ea; padding: 15px; border-radius: 8px; text-align: center;">
+                    <p style="color: #1e5e20; font-weight: 700; font-size: 12px; margin: 0;">RECOMMENDED DOSAGE:</p>
+                    <h2 style="color: #1e5e20; font-weight: 900; margin: 0;">{pred.get('recommended_dosage_ml', 0.0)} ml</h2>
+                </div>
+            """, unsafe_allow_html=True)
         else:
-            st.info("AWAITING PREDICTION\n\nUpload an image and click **PROCESS AI INFERENCE**.")
-
-# =====================================================
-# PAGE 3 & 4: PLACEHOLDERS
-# =====================================================
-
-elif page == "🚜 Rover Control":
-    st.title("🚜 Rover Controls")
-    st.info("Rover movement controls linked to ESP32 WebSocket endpoint.")
-
-elif page == "⚙️ Settings":
-    st.title("⚙️ System Settings")
-    st.write(f"**Backend Endpoint:** `{BACKEND_URL}`")
+            st.info("Select an image and click 'PROCESS AI INFERENCE'.")
