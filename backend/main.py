@@ -309,16 +309,52 @@ async def predict_manual(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Prediction failed: {str(e)}")
 
-    is_healthy = "healthy" in prediction.lower()
-    
+    clean_prediction = prediction.lower()
+    is_healthy = "healthy" in clean_prediction
+
+    # 1. Dynamic Crop Detection
+    if "guava" in clean_prediction:
+        crop_type = "Guava"
+    elif "pomegranate" in clean_prediction:
+        crop_type = "Pomegranate"
+    elif "apple" in clean_prediction:
+        crop_type = "Apple"
+    else:
+        # Fallback split if label format is 'Crop___Disease'
+        crop_type = prediction.split("___")[0].replace("_", " ").title() if "___" in prediction else "General Crop"
+
+    # 2. Dynamic Severity & Pesticide Mapping
+    if is_healthy:
+        severity = 0.0
+        pesticide = "None"
+        dosage = 0.0
+    else:
+        # Calculate dynamic severity based on confidence or model output
+        # If your model extracts lesion contours, pass that here; otherwise use scaled confidence
+        severity = round(min(85.0, max(15.0, confidence * 0.45)), 2)
+        
+        # Map treatments based on detected disease keywords
+        if "fruit fly" in clean_prediction:
+            pesticide = "Malathion 50% EC"
+            dosage = round((severity / 100.0) * 15.0, 2)
+        elif "rust" in clean_prediction or "spot" in clean_prediction:
+            pesticide = "Copper Oxychloride 50% WP"
+            dosage = round((severity / 100.0) * 12.5, 2)
+        elif "canker" in clean_prediction or "rot" in clean_prediction:
+            pesticide = "Streptocycline + Copper Sulphate"
+            dosage = round((severity / 100.0) * 10.0, 2)
+        else:
+            pesticide = "Broad-Spectrum Fungicide"
+            dosage = round((severity / 100.0) * 10.0, 2)
+
     return {
         "message": "Manual image analyzed successfully",
-        "crop": "Guava" if "guava" in prediction.lower() else "Pomegranate",
+        "crop": crop_type,
         "prediction": prediction,
-        "confidence": confidence,
-        "disease_area_percentage": 0.00 if is_healthy else 39.24,
-        "pesticide_name": "None" if is_healthy else "Copper oxychloride",
-        "recommended_dosage_ml": 0.00 if is_healthy else 11.51
+        "confidence": round(float(confidence), 2),
+        "disease_area_percentage": severity,
+        "pesticide_name": pesticide,
+        "recommended_dosage_ml": dosage
     }
 
 
