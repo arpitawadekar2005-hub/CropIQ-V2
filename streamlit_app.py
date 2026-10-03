@@ -211,7 +211,7 @@ div.stButton > button[kind="primary"]:hover {
     margin-bottom: 15px;
 }
 .plant-analysis-header { color: #073e33; font-size: 15px; font-weight: 850; letter-spacing: 0.5px; margin-bottom: 4px; }
-.plant-analysis-subheader { color: #087d3f; font-size: 22px; font-weight: 900; margin-bottom: 16px; border-bottom: 1px dashed #c3e2cb; padding-bottom: 10px; }
+.plant-analysis-subheader { font-size: 22px; font-weight: 900; margin-bottom: 16px; border-bottom: 1px dashed #c3e2cb; padding-bottom: 10px; }
 .analysis-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; font-size: 15px; border-bottom: 1px solid #f2f7f4; }
 .analysis-label { color: #5d6d66; font-weight: 600; }
 .analysis-value { color: #052e25; font-weight: 800; }
@@ -333,19 +333,27 @@ if "active_pesticide" not in st.session_state:
 if "active_dosage" not in st.session_state:
     st.session_state["active_dosage"] = ai_recommended_dosage
 
-# Consolidated Plant Analysis Component
+# Consolidated Plant Analysis Component with Healthy Plant Logic
 def render_plant_analysis():
+    is_healthy = "healthy" in st.session_state.get("active_disease", "").lower() or st.session_state.get("active_dosage", 0.0) == 0.0
+    
+    display_disease = "Healthy" if is_healthy else st.session_state["active_disease"]
+    display_header = "HEALTHY PLANT DETECTED" if is_healthy else "DISEASE DETECTED"
+    header_color = "#087d3f" if is_healthy else "#d13b35"
+    display_severity = 0.00 if is_healthy else st.session_state["active_severity"]
+    display_pesticide = "None" if is_healthy else st.session_state["active_pesticide"]
+
     st.html(f"""
     <div class="plant-analysis-card">
         <div class="plant-analysis-header">PLANT ANALYSIS</div>
-        <div class="plant-analysis-subheader">DISEASE DETECTED</div>
+        <div class="plant-analysis-subheader" style="color: {header_color};">{display_header}</div>
         <div class="analysis-row">
             <span class="analysis-label">Crop:</span>
             <span class="analysis-value">{st.session_state["active_crop"]}</span>
         </div>
         <div class="analysis-row">
             <span class="analysis-label">Disease:</span>
-            <span class="analysis-value">{st.session_state["active_disease"]}</span>
+            <span class="analysis-value">{display_disease}</span>
         </div>
         <div class="analysis-row">
             <span class="analysis-label">Confidence:</span>
@@ -353,11 +361,11 @@ def render_plant_analysis():
         </div>
         <div class="analysis-row">
             <span class="analysis-label">Severity:</span>
-            <span class="analysis-value">{st.session_state["active_severity"]:.2f}%</span>
+            <span class="analysis-value">{display_severity:.2f}%</span>
         </div>
         <div class="analysis-row">
             <span class="analysis-label">Pesticide:</span>
-            <span class="analysis-value">{st.session_state["active_pesticide"]}</span>
+            <span class="analysis-value">{display_pesticide}</span>
         </div>
         <div class="dosage-box">
             <span class="dosage-label">RECOMMENDED DOSAGE:</span>
@@ -366,7 +374,7 @@ def render_plant_analysis():
     </div>
     """)
 
-# Rover Controller Component (Used on Dashboard & Rover Control Page)
+# Rover Controller Component
 def render_rover_controls(key_prefix="dash"):
     pill_class = "online" if esp32_online else "offline"
     pill_text = "ESP32 ONLINE" if esp32_online else "ESP32 OFFLINE"
@@ -383,7 +391,6 @@ def render_rover_controls(key_prefix="dash"):
 
     speed = st.slider("Rover Speed", 0, 100, int(current_speed), 5, key=f"{key_prefix}_speed")
 
-    # Complete 3x3 Keypad Layout with Forward, Left, Stop, Right, and Backward
     c1, c2, c3 = st.columns([1, 1, 1])
     with c2:
         if st.button("⬆️ FORWARD", use_container_width=True, key=f"{key_prefix}_fwd"):
@@ -397,7 +404,7 @@ def render_rover_controls(key_prefix="dash"):
         if st.button("⏹️ STOP", type="primary", use_container_width=True, key=f"{key_prefix}_stop"):
             send_rover_command("S", speed)
     with c3:
-        if st.button("➡️️ RIGHT", use_container_width=True, key=f"{key_prefix}_right"):
+        if st.button("➡ RIGHT", use_container_width=True, key=f"{key_prefix}_right"):
             send_rover_command("R", speed)
 
     c1, c2, c3 = st.columns([1, 1, 1])
@@ -484,7 +491,6 @@ if page == "🏠 Dashboard":
 
     col_left, col_mid, col_right = st.columns([1.1, 1.0, 0.9])
 
-    # Left Column: Live Camera Feed
     with col_left:
         st.html("""
         <div class="panel">
@@ -513,11 +519,9 @@ if page == "🏠 Dashboard":
                 time.sleep(1)
                 st.rerun()
 
-    # Middle Column: Rover Control Keypad
     with col_mid:
         render_rover_controls(key_prefix="dashboard_rover")
 
-    # Right Column: Plant Analysis & Sprayer Control
     with col_right:
         render_plant_analysis()
 
@@ -531,7 +535,7 @@ if page == "🏠 Dashboard":
 
         dosage = st.number_input(
             "Spray dosage (ml)",
-            min_value=1.0,
+            min_value=0.0,
             max_value=5000.0,
             value=float(st.session_state.get("active_dosage", 11.51)),
             step=1.0,
@@ -654,7 +658,7 @@ elif page == "💧 Sprayer Control":
     with spray_col:
         dosage = st.number_input(
             "Spray dosage (ml)",
-            min_value=1.0,
+            min_value=0.0,
             max_value=5000.0,
             value=float(st.session_state.get("active_dosage", 11.51)),
             key="standalone_spray_dosage"
