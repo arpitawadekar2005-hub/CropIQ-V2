@@ -1226,6 +1226,16 @@ def get_state():
     return None
 
 
+def refresh_app_state():
+    """
+    Force a complete Streamlit rerun.
+
+    Use this after an action that changes backend AI state so
+    every page/card reads the latest /state response.
+    """
+    st.rerun()
+
+
 def send_capture():
     try:
         return requests.post(
@@ -1440,13 +1450,20 @@ def camera_fragment(button_text, button_key, primary=False, show_panel=True):
                     break
 
         if new_image is not None:
-            # Replace ONLY the image placeholder.
+            # The Raspberry Pi upload endpoint also runs the complete
+            # AI pipeline and updates backend /state. Replace the image
+            # and then perform a full app rerun so every AI card and
+            # spray recommendation reads the new analysis.
             image_placeholder.image(
                 new_image,
                 use_container_width=True
             )
 
-            st.success("✅ New image captured and displayed.")
+            st.success("✅ New image captured and analyzed.")
+
+            # Full rerun is intentional here. A fragment-only refresh
+            # would leave the dashboard AI cards and dosage stale.
+            refresh_app_state()
         else:
             st.warning(
                 "Capture command was sent, but the new image "
@@ -2671,6 +2688,13 @@ elif page == "🌿 AI Detection":
                                 )
                             )
 
+                            # Keep the complete backend result so the
+                            # manual result card and the main dashboard
+                            # use the same analysis.
+                            st.session_state[
+                                "manual_ai_result"
+                            ] = result
+
                             st.session_state[
                                 "manual_prediction"
                             ] = prediction
@@ -2682,6 +2706,12 @@ elif page == "🌿 AI Detection":
                             st.success(
                                 "✅ Image analyzed successfully."
                             )
+
+                            # The backend /state has now been updated by
+                            # /predict-manual. Re-run the whole Streamlit
+                            # app so Dashboard, AI Detection, and Sprayer
+                            # Control all read the new AI state.
+                            refresh_app_state()
 
                         except Exception as e:
 
@@ -2738,16 +2768,21 @@ elif page == "🌿 AI Detection":
             in st.session_state
         ):
 
-            prediction = (
-                st.session_state[
-                    "manual_prediction"
-                ]
+            manual_result = st.session_state.get(
+                "manual_ai_result",
+                {}
+            )
+
+            prediction = manual_result.get(
+                "prediction",
+                st.session_state["manual_prediction"]
             )
 
             confidence = float(
-                st.session_state[
-                    "manual_confidence"
-                ]
+                manual_result.get(
+                    "confidence",
+                    st.session_state["manual_confidence"]
+                )
             )
 
             display_prediction = (
