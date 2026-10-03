@@ -265,7 +265,7 @@ def get_latest_image():
         pass
     return None
 
-def predict_manual_image(image_bytes, filename="captured.jpg"):
+def predict_manual_image(image_bytes, filename="uploaded.jpg"):
     try:
         files = {
             "file": (
@@ -288,7 +288,10 @@ if "last_refresh" not in st.session_state:
     st.session_state["last_refresh"] = time.time()
 
 if "analysis_result" not in st.session_state:
-    st.session_state["analysis_result"] = None  # None = Awaiting Prediction
+    st.session_state["analysis_result"] = None
+
+if "last_uploaded_filename" not in st.session_state:
+    st.session_state["last_uploaded_filename"] = None
 
 state = get_state()
 
@@ -317,8 +320,7 @@ else:
 def render_plant_analysis():
     result = st.session_state.get("analysis_result")
     
-    if result is None:
-        # Initial or Cleared State before running AI prediction
+    if not result:
         st.html("""
         <div class="plant-analysis-card">
             <div class="plant-analysis-header">PLANT ANALYSIS</div>
@@ -351,19 +353,19 @@ def render_plant_analysis():
         """)
         return
 
-    # Extract dynamic properties
-    active_disease = result.get("prediction", "Healthy")
-    is_healthy = "healthy" in active_disease.lower()
+    # Extract model fields dynamically
+    prediction = result.get("prediction") or result.get("ai_prediction") or "Healthy"
+    is_healthy = "healthy" in str(prediction).lower()
     
-    display_disease = "Healthy" if is_healthy else active_disease.replace("_", " ")
+    display_disease = "Healthy" if is_healthy else str(prediction).replace("_", " ")
     display_header = "HEALTHY PLANT DETECTED" if is_healthy else "DISEASE DETECTED"
     header_color = "#087d3f" if is_healthy else "#d13b35"
     
     crop = result.get("crop", "Unknown")
-    confidence = float(result.get("confidence", 0.0))
-    severity = 0.00 if is_healthy else float(result.get("disease_area_percentage", 0.0))
+    confidence = float(result.get("confidence") or result.get("ai_confidence") or 0.0)
+    severity = 0.00 if is_healthy else float(result.get("disease_area_percentage") or 0.0)
     pesticide = "None" if is_healthy else result.get("pesticide_name", "None")
-    dosage = float(result.get("recommended_dosage_ml", 0.0))
+    dosage = float(result.get("recommended_dosage_ml") or 0.0)
 
     st.html(f"""
     <div class="plant-analysis-card">
@@ -522,25 +524,22 @@ if page == "🏠 Dashboard":
         </div>
         """)
 
-        # Get current image
         current_image = get_latest_image()
         if current_image:
             st.image(current_image, use_container_width=True)
         else:
             st.info("No camera image available.")
 
-        # 1. Capture Button - Refreshes image and resets AI results
         if st.button("📸 CAPTURE PLANT IMAGE", type="primary", use_container_width=True, key="dashboard_capture"):
             response = send_capture()
             if response and response.status_code == 200:
-                st.session_state["analysis_result"] = None  # Reset analysis on new image
+                st.session_state["analysis_result"] = None
                 st.success("New image captured and updated!")
                 time.sleep(0.5)
                 st.rerun()
 
         st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
 
-        # 2. AI Prediction Button - Runs AI model on the captured image
         if st.button("🔍 RUN AI PREDICTION", use_container_width=True, key="dashboard_predict"):
             if current_image:
                 with st.spinner("Analyzing captured image with AI..."):
@@ -628,6 +627,11 @@ elif page == "🌿 AI Detection":
         uploaded_file = st.file_uploader("Choose an image", type=["jpg", "jpeg", "png"], key="ai_detection_upload")
 
         if uploaded_file is not None:
+            # Reset results if a new file is uploaded
+            if st.session_state["last_uploaded_filename"] != uploaded_file.name:
+                st.session_state["last_uploaded_filename"] = uploaded_file.name
+                st.session_state["analysis_result"] = None
+
             image_bytes = uploaded_file.getvalue()
             st.image(image_bytes, caption="Uploaded Plant Image", use_container_width=True)
 
@@ -639,6 +643,8 @@ elif page == "🌿 AI Detection":
                     st.session_state["analysis_result"] = response.json()
                     st.success("✅ Analysis completed successfully!")
                     st.rerun()
+                else:
+                    st.error("Failed to run AI analysis on the uploaded image.")
 
     with result_col:
         render_plant_analysis()
