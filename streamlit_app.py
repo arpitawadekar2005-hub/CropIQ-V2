@@ -282,9 +282,13 @@ def predict_manual_image(uploaded_file):
     return None
 
 # ============================================================
-# STATE MANAGEMENT
+# AUTO-REFRESH MECHANISM
 # ============================================================
 
+if "last_refresh" not in st.session_state:
+    st.session_state["last_refresh"] = time.time()
+
+# Check and update background state
 state = get_state()
 
 if state:
@@ -298,12 +302,14 @@ if state:
     rover_status = esp32.get("rover_status", "STOPPED")
     current_speed = esp32.get("speed", 50)
 
-    ai_crop = raspberry.get("crop", "Guava")
-    ai_disease = raspberry.get("ai_prediction", "Guava fruit fly")
-    ai_confidence = float(raspberry.get("ai_confidence", 89.32) or 89.32)
-    ai_severity = float(raspberry.get("disease_area_percentage", 39.24) or 39.24)
-    ai_pesticide_name = raspberry.get("pesticide_name", "Copper oxychloride")
-    ai_recommended_dosage = float(raspberry.get("recommended_dosage_ml", 11.51) or 11.51)
+    # Sync live state from backend unless a manual file is actively uploaded
+    if "uploaded_image_bytes" not in st.session_state:
+        st.session_state["active_crop"] = raspberry.get("crop", "Guava")
+        st.session_state["active_disease"] = raspberry.get("ai_prediction", "Guava fruit fly").replace("_", " ")
+        st.session_state["active_confidence"] = float(raspberry.get("ai_confidence", 89.32) or 89.32)
+        st.session_state["active_severity"] = float(raspberry.get("disease_area_percentage", 39.24) or 39.24)
+        st.session_state["active_pesticide"] = raspberry.get("pesticide_name", "Copper oxychloride")
+        st.session_state["active_dosage"] = float(raspberry.get("recommended_dosage_ml", 11.51) or 11.51)
 else:
     spray_status = "OFFLINE"
     sprayed_amount = 0.0
@@ -312,30 +318,21 @@ else:
     rover_status = "STOPPED"
     current_speed = 50
 
-    ai_crop = "Guava"
-    ai_disease = "Guava fruit fly"
-    ai_confidence = 89.32
-    ai_severity = 39.24
-    ai_pesticide_name = "Copper oxychloride"
-    ai_recommended_dosage = 11.51
+    if "active_crop" not in st.session_state:
+        st.session_state["active_crop"] = "Guava"
+    if "active_disease" not in st.session_state:
+        st.session_state["active_disease"] = "Guava fruit fly"
+    if "active_confidence" not in st.session_state:
+        st.session_state["active_confidence"] = 89.32
+    if "active_severity" not in st.session_state:
+        st.session_state["active_severity"] = 39.24
+    if "active_pesticide" not in st.session_state:
+        st.session_state["active_pesticide"] = "Copper oxychloride"
+    if "active_dosage" not in st.session_state:
+        st.session_state["active_dosage"] = 11.51
 
-# Store values in Session State if not initialized
-if "active_crop" not in st.session_state:
-    st.session_state["active_crop"] = ai_crop
-if "active_disease" not in st.session_state:
-    st.session_state["active_disease"] = ai_disease
-if "active_confidence" not in st.session_state:
-    st.session_state["active_confidence"] = ai_confidence
-if "active_severity" not in st.session_state:
-    st.session_state["active_severity"] = ai_severity
-if "active_pesticide" not in st.session_state:
-    st.session_state["active_pesticide"] = ai_pesticide_name
-if "active_dosage" not in st.session_state:
-    st.session_state["active_dosage"] = ai_recommended_dosage
-
-# Consolidated Plant Analysis Component with Healthy Plant Logic
+# Consolidated Plant Analysis Component
 def render_plant_analysis():
-    # FIXED
     active_disease = st.session_state.get("active_disease") or ""
     is_healthy = "healthy" in active_disease.lower()
     
@@ -513,10 +510,10 @@ if page == "🏠 Dashboard":
                 st.info("No camera image available.")
 
         if st.button("📸 CAPTURE PLANT IMAGE", type="primary", use_container_width=True, key="dashboard_capture"):
+            if "uploaded_image_bytes" in st.session_state:
+                del st.session_state["uploaded_image_bytes"]
             response = send_capture()
             if response and response.status_code == 200:
-                if "uploaded_image_bytes" in st.session_state:
-                    del st.session_state["uploaded_image_bytes"]
                 st.info("📸 Capturing new image...")
                 time.sleep(1)
                 st.rerun()
@@ -684,3 +681,8 @@ elif page == "⚙️ Settings":
 
     st.subheader("Backend Service Endpoint")
     st.code(BACKEND_URL)
+
+# Auto-refresh trigger every 4 seconds
+if time.time() - st.session_state["last_refresh"] > 4:
+    st.session_state["last_refresh"] = time.time()
+    st.rerun()
