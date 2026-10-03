@@ -335,7 +335,9 @@ if "active_dosage" not in st.session_state:
 
 # Consolidated Plant Analysis Component with Healthy Plant Logic
 def render_plant_analysis():
-    is_healthy = "healthy" in st.session_state.get("active_disease", "").lower() or st.session_state.get("active_dosage", 0.0) == 0.0
+    # FIXED
+    active_disease = st.session_state.get("active_disease") or ""
+    is_healthy = "healthy" in active_disease.lower()
     
     display_disease = "Healthy" if is_healthy else st.session_state["active_disease"]
     display_header = "HEALTHY PLANT DETECTED" if is_healthy else "DISEASE DETECTED"
