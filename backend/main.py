@@ -192,17 +192,18 @@ def get_latest_image():
 async def control_rover(rover_cmd: RoverCommand):
     """Sends directional movement and speed commands to the ESP32 rover."""
     global active_esp32_ws
-    
-    # Map command codes
+
+    command = rover_cmd.command.upper().strip()
     command_map = {"F": "FORWARD", "B": "BACKWARD", "L": "LEFT", "R": "RIGHT", "S": "STOP"}
-    mapped_status = command_map.get(rover_cmd.command.upper(), rover_cmd.command)
-    
+    mapped_status = command_map.get(command, "STOP")
+
     system_state["esp32"]["speed"] = rover_cmd.speed
     system_state["esp32"]["rover_status"] = mapped_status
 
     if active_esp32_ws:
         try:
-            payload = f"{rover_cmd.command.upper()}:{rover_cmd.speed}"
+            # Send raw single-character command expected by rover.ino
+            payload = command
             await active_esp32_ws.send_text(payload)
             return {"status": "success", "message": f"Command '{payload}' sent to ESP32"}
         except Exception as e:
