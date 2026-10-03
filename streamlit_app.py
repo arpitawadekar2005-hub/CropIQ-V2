@@ -1202,6 +1202,70 @@ div[data-testid="stAlert"] {
     line-height: 1.45;
 }
 
+/* ============================================================
+   UNIFIED AI RESULT
+   ============================================================ */
+
+.ai-result-panel {
+    background: #ffffff;
+    border: 2px solid #bfe5ce;
+    border-radius: 18px;
+    padding: 24px 26px;
+    margin: 14px 0 22px 0;
+    box-shadow: 0 8px 28px rgba(25,70,48,0.08);
+}
+
+.ai-result-heading {
+    color: #063f34;
+    font-size: 24px;
+    font-weight: 950;
+    letter-spacing: 0.2px;
+    margin-bottom: 18px;
+}
+
+.ai-result-status {
+    color: #087d3f;
+    font-size: 25px;
+    font-weight: 950;
+    margin-bottom: 16px;
+}
+
+.ai-result-row {
+    margin: 9px 0;
+    color: #173d34;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.45;
+}
+
+.ai-result-row strong {
+    color: #063f34;
+    font-weight: 950;
+}
+
+.ai-result-dose {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: #eefaf2;
+    border: 1px solid #bfe5ce;
+    color: #057a3c;
+    font-size: 24px;
+    font-weight: 950;
+}
+
+.ai-result-healthy {
+    color: #087d3f;
+    font-size: 24px;
+    font-weight: 950;
+}
+
+.ai-result-empty {
+    color: #66756f;
+    font-size: 17px;
+    font-weight: 700;
+}
+
 </style>
 """)
 
@@ -1234,6 +1298,116 @@ def refresh_app_state():
     every page/card reads the latest /state response.
     """
     st.rerun()
+
+
+def result_is_healthy(prediction, disease, healthy_flag=False):
+    """
+    Determine health from the actual classification/disease fields.
+
+    This prevents a stale or mismatched boolean 'healthy' value from
+    showing a diseased prediction as HEALTHY in the dashboard.
+    """
+    prediction_text = str(prediction or "").strip().lower()
+    disease_text = str(disease or "").strip().lower()
+
+    if "healthy" in prediction_text:
+        return True
+
+    if disease_text == "healthy":
+        return True
+
+    if disease_text:
+        return False
+
+    return bool(healthy_flag)
+
+
+def render_ai_result(
+    prediction,
+    confidence,
+    crop,
+    disease,
+    healthy,
+    severity,
+    pesticide_name,
+    recommended_dosage,
+):
+    """
+    Render one unified, highly visible AI result instead of multiple
+    competing cards.
+    """
+    if not prediction:
+        st.html("""
+        <div class="ai-result-panel">
+            <div class="ai-result-heading">🌿 PLANT ANALYSIS</div>
+            <div class="ai-result-empty">
+                Awaiting AI analysis.
+            </div>
+        </div>
+        """)
+        return
+
+    if healthy:
+        st.html(f"""
+        <div class="ai-result-panel">
+            <div class="ai-result-heading">🌿 PLANT ANALYSIS</div>
+
+            <div class="ai-result-status">
+                HEALTHY
+            </div>
+
+            <div class="ai-result-row">
+                <strong>Crop:</strong> {crop or "Unknown"}
+            </div>
+
+            <div class="ai-result-row">
+                <strong>Disease:</strong> Healthy
+            </div>
+
+            <div class="ai-result-row">
+                <strong>Confidence:</strong> {confidence:.2f}%
+            </div>
+
+            <div class="ai-result-dose">
+                NO SPRAY REQUIRED
+            </div>
+        </div>
+        """)
+        return
+
+    st.html(f"""
+    <div class="ai-result-panel">
+        <div class="ai-result-heading">🌿 PLANT ANALYSIS</div>
+
+        <div class="ai-result-status">
+            DISEASE DETECTED
+        </div>
+
+        <div class="ai-result-row">
+            <strong>Crop:</strong> {crop or "Unknown"}
+        </div>
+
+        <div class="ai-result-row">
+            <strong>Disease:</strong> {disease or "Unknown"}
+        </div>
+
+        <div class="ai-result-row">
+            <strong>Confidence:</strong> {confidence:.2f}%
+        </div>
+
+        <div class="ai-result-row">
+            <strong>Severity:</strong> {severity:.2f}%
+        </div>
+
+        <div class="ai-result-row">
+            <strong>Pesticide:</strong> {pesticide_name or "N/A"}
+        </div>
+
+        <div class="ai-result-dose">
+            RECOMMENDED DOSAGE: {recommended_dosage:.2f} ml
+        </div>
+    </div>
+    """)
 
 
 def send_capture():
@@ -1504,7 +1678,11 @@ if state:
     )
     ai_crop = raspberry.get("crop")
     ai_disease = raspberry.get("disease")
-    ai_healthy = bool(raspberry.get("healthy", False))
+    ai_healthy = result_is_healthy(
+        ai_prediction,
+        ai_disease,
+        raspberry.get("healthy", False)
+    )
     segmentation_performed = bool(
         raspberry.get("segmentation_performed", False)
     )
@@ -1524,8 +1702,11 @@ if state:
     recommended_dosage_ml = float(
         raspberry.get("recommended_dosage_ml", 0) or 0
     )
-    spray_required = bool(
-        raspberry.get("spray_required", False)
+    # Derive spray eligibility from the actual AI result too.
+    spray_required = (
+        (not ai_healthy)
+        and bool(raspberry.get("spray_required", False))
+        and recommended_dosage_ml > 0
     )
     ai_message = raspberry.get(
         "ai_message",
@@ -2088,225 +2269,25 @@ if page == "🏠 Dashboard":
 
 
     # --------------------------------------------------------
-    # AI DETECTION
+    # UNIFIED AI RESULT
     # --------------------------------------------------------
 
     st.html("""
     <div class="section-title">
-        🌿 AI Detection
+        🌿 AI Detection Result
     </div>
     """)
 
-    ai1, ai2, ai3 = st.columns([1, 1.15, 0.8])
-
-    # --------------------------------------------------------
-    # PLANT ANALYSIS
-    # --------------------------------------------------------
-    with ai1:
-
-        if ai_prediction:
-
-            status_text = (
-                "HEALTHY"
-                if ai_healthy
-                else "DISEASE DETECTED"
-            )
-
-            st.html(f"""
-            <div class="ai-card">
-                <div class="ai-title">
-                    🌿 Plant Analysis
-                </div>
-                <div class="ai-label">
-                    DETECTION STATUS
-                </div>
-                <div class="ai-value">
-                    {status_text}
-                </div>
-                <div class="ai-text">
-                    Crop: {ai_crop or "Unknown"}<br>
-                    Prediction: {
-                        str(ai_prediction).replace("_", " ")
-                    }<br>
-                    Confidence: {ai_confidence:.2f}%
-                </div>
-            </div>
-            """)
-
-        else:
-
-            st.html("""
-            <div class="ai-card">
-                <div class="ai-title">
-                    🌿 Plant Analysis
-                </div>
-                <div class="ai-label">
-                    DETECTION STATUS
-                </div>
-                <div class="ai-value">
-                    Awaiting Analysis
-                </div>
-                <div class="ai-text">
-                    Capture a plant image to begin
-                    AI-powered plant analysis.
-                </div>
-            </div>
-            """)
-
-    # --------------------------------------------------------
-    # DISEASE DETECTION
-    # --------------------------------------------------------
-    with ai2:
-
-        if ai_prediction:
-
-            if ai_healthy:
-                condition = "Healthy"
-                condition_text = (
-                    f"{ai_crop or 'Plant'} classified as healthy.<br>"
-                    f"Confidence: {ai_confidence:.2f}%<br>"
-                    "Segmentation: Not required"
-                )
-            else:
-                condition = ai_disease or "Unknown"
-                condition_text = (
-                    f"Crop: {ai_crop or 'Unknown'}<br>"
-                    f"Severity: {severity_percent:.2f}%<br>"
-                    f"Fruit area: {fruit_area_pixels:,} px<br>"
-                    f"Disease area: {disease_area_pixels:,} px"
-                )
-
-            card_class = "" if ai_healthy else "ai-alert"
-
-            st.html(f"""
-            <div class="ai-card {card_class}">
-                <div class="ai-title">
-                    🔬 Disease Detection
-                </div>
-                <div class="ai-label">
-                    DETECTED CONDITION
-                </div>
-                <div class="ai-value">
-                    {condition}
-                </div>
-                <div class="ai-text">
-                    {condition_text}
-                </div>
-            </div>
-            """)
-
-        else:
-
-            st.html("""
-            <div class="ai-card ai-alert">
-                <div class="ai-title">
-                    🔬 Disease Detection
-                </div>
-                <div class="ai-label">
-                    DETECTED CONDITION
-                </div>
-                <div class="ai-value">
-                    No analysis available
-                </div>
-                <div class="ai-text">
-                    Capture a plant image to run
-                    CropIQ AI analysis.
-                </div>
-            </div>
-            """)
-
-    # --------------------------------------------------------
-    # RECOMMENDATION
-    # --------------------------------------------------------
-    with ai3:
-
-        if ai_healthy:
-
-            recommendation = "NO SPRAY"
-            recommendation_text = (
-                "Plant is healthy.<br>"
-                "No treatment is required."
-            )
-
-        elif spray_required:
-
-            recommendation = (
-                f"{recommended_dosage_ml:.2f} ml"
-            )
-            recommendation_text = (
-                f"Pesticide: {pesticide or 'N/A'}<br>"
-                f"Base dosage: {base_dosage_ml:.2f} ml<br>"
-                f"Severity: {severity_percent:.2f}%"
-            )
-
-        elif ai_prediction:
-
-            recommendation = "NO SPRAY"
-            recommendation_text = (
-                "No active spray recommendation."
-            )
-
-        else:
-
-            recommendation = "AWAITING"
-            recommendation_text = (
-                "Treatment recommendation will appear "
-                "after AI detection."
-            )
-
-        st.html(f"""
-        <div class="ai-card ai-recommend">
-            <div class="ai-title">
-                💡 Recommendation
-            </div>
-            <div class="ai-label">
-                RECOMMENDED ACTION
-            </div>
-            <div class="ai-value">
-                {recommendation}
-            </div>
-            <div class="ai-text">
-                {recommendation_text}
-            </div>
-        </div>
-        """)
-
-    # --------------------------------------------------------
-    # AI TREATMENT DETAILS
-    # --------------------------------------------------------
-    if ai_prediction and not ai_healthy:
-
-        st.html("""
-        <div class="section-title">
-            🎯 Precision Treatment Details
-        </div>
-        """)
-
-        d1, d2, d3, d4 = st.columns(4)
-
-        with d1:
-            st.metric(
-                "Severity",
-                f"{severity_percent:.2f}%"
-            )
-
-        with d2:
-            st.metric(
-                "Pesticide",
-                pesticide or "N/A"
-            )
-
-        with d3:
-            st.metric(
-                "Base Dosage",
-                f"{base_dosage_ml:.2f} ml"
-            )
-
-        with d4:
-            st.metric(
-                "Recommended",
-                f"{recommended_dosage_ml:.2f} ml"
-            )
+    render_ai_result(
+        prediction=ai_prediction,
+        confidence=ai_confidence,
+        crop=ai_crop,
+        disease=ai_disease,
+        healthy=ai_healthy,
+        severity=severity_percent,
+        pesticide_name=pesticide,
+        recommended_dosage=recommended_dosage_ml,
+    )
 
     # --------------------------------------------------------
     # WORKFLOW
@@ -2857,7 +2838,11 @@ elif page == "🌿 AI Detection":
     )
     pi_crop = pi_data.get("crop")
     pi_disease = pi_data.get("disease")
-    pi_healthy = bool(pi_data.get("healthy", False))
+    pi_healthy = result_is_healthy(
+        pi_prediction,
+        pi_disease,
+        pi_data.get("healthy", False)
+    )
     pi_segmentation = bool(
         pi_data.get("segmentation_performed", False)
     )
@@ -2877,8 +2862,10 @@ elif page == "🌿 AI Detection":
     pi_recommended_dosage = float(
         pi_data.get("recommended_dosage_ml", 0) or 0
     )
-    pi_spray_required = bool(
-        pi_data.get("spray_required", False)
+    pi_spray_required = (
+        (not pi_healthy)
+        and bool(pi_data.get("spray_required", False))
+        and pi_recommended_dosage > 0
     )
     pi_message = pi_data.get(
         "ai_message",
@@ -2897,171 +2884,48 @@ elif page == "🌿 AI Detection":
         )
 
         # ----------------------------------------------------
-        # COMPLETE RASPBERRY PI AI RESULT
+        # UNIFIED RASPBERRY PI AI RESULT
         # ----------------------------------------------------
 
         if pi_prediction:
 
-            display_pi_prediction = (
-                str(pi_prediction)
-                .replace("_", " ")
+            render_ai_result(
+                prediction=pi_prediction,
+                confidence=pi_confidence,
+                crop=pi_crop,
+                disease=pi_disease,
+                healthy=pi_healthy,
+                severity=pi_severity,
+                pesticide_name=pi_pesticide,
+                recommended_dosage=pi_recommended_dosage,
             )
 
-            st.html(f"""
-            <div class="pi-ai-result">
+            if (
+                not pi_healthy
+                and pi_spray_required
+                and pi_recommended_dosage > 0
+            ):
 
-                <div class="pi-ai-title">
-                    🤖 Raspberry Pi AI Analysis
-                </div>
+                if st.button(
+                    "🚿 START PRECISION SPRAY",
+                    type="primary",
+                    use_container_width=True,
+                    key="ai_page_spray"
+                ):
 
-                <div class="pi-ai-label">
-                    CROP
-                </div>
-
-                <div class="pi-ai-value">
-                    {pi_crop or "Unknown"}
-                </div>
-
-                <div class="pi-ai-label">
-                    PREDICTED CONDITION
-                </div>
-
-                <div class="pi-ai-value">
-                    {display_pi_prediction}
-                </div>
-
-                <div class="pi-ai-label">
-                    MODEL CONFIDENCE
-                </div>
-
-                <div class="pi-ai-confidence">
-                    {pi_confidence:.2f}%
-                </div>
-
-                <div class="pi-ai-note">
-                    {pi_message}
-                </div>
-
-            </div>
-            """)
-
-            st.progress(
-                max(
-                    0.0,
-                    min(
-                        pi_confidence / 100.0,
-                        1.0
-                    )
-                )
-            )
-
-            if pi_healthy:
-
-                st.success(
-                    f"{pi_crop or 'Plant'} is healthy. "
-                    "No spraying is required."
-                )
-
-            else:
-
-                st.html(f"""
-                <div class="ai-card ai-alert">
-                    <div class="ai-title">
-                        🔬 Disease & Severity
-                    </div>
-
-                    <div class="ai-label">
-                        DISEASE
-                    </div>
-                    <div class="ai-value">
-                        {pi_disease or "Unknown"}
-                    </div>
-
-                    <div class="ai-label">
-                        SEVERITY
-                    </div>
-                    <div class="ai-value">
-                        {pi_severity:.2f}%
-                    </div>
-
-                    <div class="ai-text">
-                        Fruit area: {pi_fruit_area:,} pixels<br>
-                        Disease area: {pi_disease_area:,} pixels<br>
-                        Segmentation performed: {
-                            "Yes" if pi_segmentation else "No"
-                        }
-                    </div>
-                </div>
-                """)
-
-                r1, r2, r3 = st.columns(3)
-
-                with r1:
-                    st.metric(
-                        "Pesticide",
-                        pi_pesticide or "N/A"
+                    response = send_spray(
+                        pi_recommended_dosage
                     )
 
-                with r2:
-                    st.metric(
-                        "Base Dosage",
-                        f"{pi_base_dosage:.2f} ml"
-                    )
-
-                with r3:
-                    st.metric(
-                        "Recommended",
-                        f"{pi_recommended_dosage:.2f} ml"
-                    )
-
-                if pi_spray_required:
-
-                    st.info(
-                        f"Recommended action: spray "
-                        f"{pi_recommended_dosage:.2f} ml "
-                        f"of {pi_pesticide or 'the configured treatment'}."
-                    )
-
-                    if st.button(
-                        "🚿 START PRECISION SPRAY",
-                        type="primary",
-                        use_container_width=True,
-                        key="ai_page_spray"
-                    ):
-
-                        response = send_spray(
-                            pi_recommended_dosage
+                    if response and response.status_code == 200:
+                        st.success(
+                            "Spray command sent to Raspberry Pi."
                         )
 
-                        if response and response.status_code == 200:
-                            st.success(
-                                "Spray command sent to Raspberry Pi."
-                            )
-
-                        elif response:
-                            st.error(
-                                f"Spray failed: {response.text}"
-                            )
-
-                else:
-
-                    st.warning(
-                        "No active spray recommendation is available."
-                    )
-
-        else:
-
-            st.info(
-                "The Raspberry Pi image is available, but no AI analysis "
-                "has been recorded yet. Capture/upload a new image to run AI detection."
-            )
-
-    else:
-
-        st.info(
-            "No Raspberry Pi image available yet."
-        )
-
+                    elif response:
+                        st.error(
+                            f"Spray failed: {response.text}"
+                        )
 
     # ========================================================
     # AI INFORMATION
