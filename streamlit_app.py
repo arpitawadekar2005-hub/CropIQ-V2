@@ -265,14 +265,13 @@ def get_latest_image():
         pass
     return None
 
-def predict_manual_image(uploaded_file):
+def predict_manual_image(image_bytes, filename="captured.jpg"):
     try:
-        image_bytes = uploaded_file.getvalue()
         files = {
             "file": (
-                uploaded_file.name,
+                filename,
                 image_bytes,
-                uploaded_file.type or "image/jpeg"
+                "image/jpeg"
             )
         }
         response = requests.post(BACKEND_URL + "/predict-manual", files=files, timeout=30)
@@ -282,13 +281,15 @@ def predict_manual_image(uploaded_file):
     return None
 
 # ============================================================
-# AUTO-REFRESH MECHANISM
+# INITIALIZE SESSION STATE
 # ============================================================
 
 if "last_refresh" not in st.session_state:
     st.session_state["last_refresh"] = time.time()
 
-# Check and update background state
+if "analysis_result" not in st.session_state:
+    st.session_state["analysis_result"] = None  # None = Awaiting Prediction
+
 state = get_state()
 
 if state:
@@ -301,15 +302,6 @@ if state:
     esp32_online = esp32.get("online", False)
     rover_status = esp32.get("rover_status", "STOPPED")
     current_speed = esp32.get("speed", 50)
-
-    # Sync live state from backend unless a manual file is actively uploaded
-    if "uploaded_image_bytes" not in st.session_state:
-        st.session_state["active_crop"] = raspberry.get("crop", "Guava")
-        st.session_state["active_disease"] = raspberry.get("ai_prediction", "Guava fruit fly").replace("_", " ")
-        st.session_state["active_confidence"] = float(raspberry.get("ai_confidence", 89.32) or 89.32)
-        st.session_state["active_severity"] = float(raspberry.get("disease_area_percentage", 39.24) or 39.24)
-        st.session_state["active_pesticide"] = raspberry.get("pesticide_name", "Copper oxychloride")
-        st.session_state["active_dosage"] = float(raspberry.get("recommended_dosage_ml", 11.51) or 11.51)
 else:
     spray_status = "OFFLINE"
     sprayed_amount = 0.0
@@ -318,29 +310,60 @@ else:
     rover_status = "STOPPED"
     current_speed = 50
 
-    if "active_crop" not in st.session_state:
-        st.session_state["active_crop"] = "Guava"
-    if "active_disease" not in st.session_state:
-        st.session_state["active_disease"] = "Guava fruit fly"
-    if "active_confidence" not in st.session_state:
-        st.session_state["active_confidence"] = 89.32
-    if "active_severity" not in st.session_state:
-        st.session_state["active_severity"] = 39.24
-    if "active_pesticide" not in st.session_state:
-        st.session_state["active_pesticide"] = "Copper oxychloride"
-    if "active_dosage" not in st.session_state:
-        st.session_state["active_dosage"] = 11.51
+# ============================================================
+# COMPONENT RENDERERS
+# ============================================================
 
-# Consolidated Plant Analysis Component
 def render_plant_analysis():
-    active_disease = st.session_state.get("active_disease") or ""
+    result = st.session_state.get("analysis_result")
+    
+    if result is None:
+        # Initial or Cleared State before running AI prediction
+        st.html("""
+        <div class="plant-analysis-card">
+            <div class="plant-analysis-header">PLANT ANALYSIS</div>
+            <div class="plant-analysis-subheader" style="color: #75817c;">AWAITING PREDICTION</div>
+            <div class="analysis-row">
+                <span class="analysis-label">Crop:</span>
+                <span class="analysis-value">--</span>
+            </div>
+            <div class="analysis-row">
+                <span class="analysis-label">Disease:</span>
+                <span class="analysis-value">--</span>
+            </div>
+            <div class="analysis-row">
+                <span class="analysis-label">Confidence:</span>
+                <span class="analysis-value">--</span>
+            </div>
+            <div class="analysis-row">
+                <span class="analysis-label">Severity:</span>
+                <span class="analysis-value">--</span>
+            </div>
+            <div class="analysis-row">
+                <span class="analysis-label">Pesticide:</span>
+                <span class="analysis-value">--</span>
+            </div>
+            <div class="dosage-box">
+                <span class="dosage-label">RECOMMENDED DOSAGE:</span>
+                <span class="dosage-value">0.00 ml</span>
+            </div>
+        </div>
+        """)
+        return
+
+    # Extract dynamic properties
+    active_disease = result.get("prediction", "Healthy")
     is_healthy = "healthy" in active_disease.lower()
     
-    display_disease = "Healthy" if is_healthy else st.session_state["active_disease"]
+    display_disease = "Healthy" if is_healthy else active_disease.replace("_", " ")
     display_header = "HEALTHY PLANT DETECTED" if is_healthy else "DISEASE DETECTED"
     header_color = "#087d3f" if is_healthy else "#d13b35"
-    display_severity = 0.00 if is_healthy else st.session_state["active_severity"]
-    display_pesticide = "None" if is_healthy else st.session_state["active_pesticide"]
+    
+    crop = result.get("crop", "Unknown")
+    confidence = float(result.get("confidence", 0.0))
+    severity = 0.00 if is_healthy else float(result.get("disease_area_percentage", 0.0))
+    pesticide = "None" if is_healthy else result.get("pesticide_name", "None")
+    dosage = float(result.get("recommended_dosage_ml", 0.0))
 
     st.html(f"""
     <div class="plant-analysis-card">
@@ -348,7 +371,7 @@ def render_plant_analysis():
         <div class="plant-analysis-subheader" style="color: {header_color};">{display_header}</div>
         <div class="analysis-row">
             <span class="analysis-label">Crop:</span>
-            <span class="analysis-value">{st.session_state["active_crop"]}</span>
+            <span class="analysis-value">{crop}</span>
         </div>
         <div class="analysis-row">
             <span class="analysis-label">Disease:</span>
@@ -356,24 +379,23 @@ def render_plant_analysis():
         </div>
         <div class="analysis-row">
             <span class="analysis-label">Confidence:</span>
-            <span class="analysis-value">{st.session_state["active_confidence"]:.2f}%</span>
+            <span class="analysis-value">{confidence:.2f}%</span>
         </div>
         <div class="analysis-row">
             <span class="analysis-label">Severity:</span>
-            <span class="analysis-value">{display_severity:.2f}%</span>
+            <span class="analysis-value">{severity:.2f}%</span>
         </div>
         <div class="analysis-row">
             <span class="analysis-label">Pesticide:</span>
-            <span class="analysis-value">{display_pesticide}</span>
+            <span class="analysis-value">{pesticide}</span>
         </div>
         <div class="dosage-box">
             <span class="dosage-label">RECOMMENDED DOSAGE:</span>
-            <span class="dosage-value">{st.session_state["active_dosage"]:.2f} ml</span>
+            <span class="dosage-value">{dosage:.2f} ml</span>
         </div>
     </div>
     """)
 
-# Rover Controller Component
 def render_rover_controls(key_prefix="dash"):
     pill_class = "online" if esp32_online else "offline"
     pill_text = "ESP32 ONLINE" if esp32_online else "ESP32 OFFLINE"
@@ -500,23 +522,37 @@ if page == "🏠 Dashboard":
         </div>
         """)
 
-        if "uploaded_image_bytes" in st.session_state:
-            st.image(st.session_state["uploaded_image_bytes"], use_container_width=True)
+        # Get current image
+        current_image = get_latest_image()
+        if current_image:
+            st.image(current_image, use_container_width=True)
         else:
-            current_image = get_latest_image()
-            if current_image:
-                st.image(current_image, use_container_width=True)
-            else:
-                st.info("No camera image available.")
+            st.info("No camera image available.")
 
+        # 1. Capture Button - Refreshes image and resets AI results
         if st.button("📸 CAPTURE PLANT IMAGE", type="primary", use_container_width=True, key="dashboard_capture"):
-            if "uploaded_image_bytes" in st.session_state:
-                del st.session_state["uploaded_image_bytes"]
             response = send_capture()
             if response and response.status_code == 200:
-                st.info("📸 Capturing new image...")
-                time.sleep(1)
+                st.session_state["analysis_result"] = None  # Reset analysis on new image
+                st.success("New image captured and updated!")
+                time.sleep(0.5)
                 st.rerun()
+
+        st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+
+        # 2. AI Prediction Button - Runs AI model on the captured image
+        if st.button("🔍 RUN AI PREDICTION", use_container_width=True, key="dashboard_predict"):
+            if current_image:
+                with st.spinner("Analyzing captured image with AI..."):
+                    response = predict_manual_image(current_image, "dashboard_capture.jpg")
+                    if response and response.status_code == 200:
+                        st.session_state["analysis_result"] = response.json()
+                        st.success("AI Inference Complete!")
+                        st.rerun()
+                    else:
+                        st.error("Failed to process AI inference.")
+            else:
+                st.warning("No image available to analyze.")
 
     with col_mid:
         render_rover_controls(key_prefix="dashboard_rover")
@@ -532,11 +568,14 @@ if page == "🏠 Dashboard":
         </div>
         """)
 
+        res = st.session_state.get("analysis_result")
+        default_dosage = float(res.get("recommended_dosage_ml", 0.0)) if res else 0.0
+
         dosage = st.number_input(
             "Spray dosage (ml)",
             min_value=0.0,
             max_value=5000.0,
-            value=float(st.session_state.get("active_dosage", 11.51)),
+            value=default_dosage,
             step=1.0,
             key="dashboard_dosage"
         )
@@ -593,19 +632,11 @@ elif page == "🌿 AI Detection":
             st.image(image_bytes, caption="Uploaded Plant Image", use_container_width=True)
 
             if st.button("🔍 PROCESS AI INFERENCE", type="primary", use_container_width=True, key="ai_process_button"):
-                st.session_state["uploaded_image_bytes"] = image_bytes
-
                 with st.spinner("Processing plant diagnosis..."):
-                    response = predict_manual_image(uploaded_file)
+                    response = predict_manual_image(image_bytes, uploaded_file.name)
 
                 if response and response.status_code == 200:
-                    res = response.json()
-                    st.session_state["active_crop"] = res.get("crop", "Guava")
-                    st.session_state["active_disease"] = res.get("prediction", "Guava fruit fly").replace("_", " ")
-                    st.session_state["active_confidence"] = float(res.get("confidence", 89.32))
-                    st.session_state["active_severity"] = float(res.get("disease_area_percentage", 39.24))
-                    st.session_state["active_pesticide"] = res.get("pesticide_name", "Copper oxychloride")
-                    st.session_state["active_dosage"] = float(res.get("recommended_dosage_ml", 11.51))
+                    st.session_state["analysis_result"] = response.json()
                     st.success("✅ Analysis completed successfully!")
                     st.rerun()
 
@@ -625,19 +656,15 @@ elif page == "📷 Live View":
     </div>
     """)
 
-    if "uploaded_image_bytes" in st.session_state:
-        st.image(st.session_state["uploaded_image_bytes"], use_container_width=True)
+    current_image = get_latest_image()
+    if current_image:
+        st.image(current_image, use_container_width=True)
     else:
-        current_image = get_latest_image()
-        if current_image:
-            st.image(current_image, use_container_width=True)
-        else:
-            st.info("No camera image available.")
+        st.info("No camera image available.")
 
     if st.button("📸 CAPTURE NEW IMAGE", type="primary", use_container_width=True, key="liveview_capture"):
-        if "uploaded_image_bytes" in st.session_state:
-            del st.session_state["uploaded_image_bytes"]
         send_capture()
+        st.session_state["analysis_result"] = None
         st.rerun()
 
 # ============================================================
@@ -655,11 +682,14 @@ elif page == "💧 Sprayer Control":
 
     spray_col, _ = st.columns([1.0, 1.0])
     with spray_col:
+        res = st.session_state.get("analysis_result")
+        default_dosage = float(res.get("recommended_dosage_ml", 0.0)) if res else 0.0
+
         dosage = st.number_input(
             "Spray dosage (ml)",
             min_value=0.0,
             max_value=5000.0,
-            value=float(st.session_state.get("active_dosage", 11.51)),
+            value=default_dosage,
             key="standalone_spray_dosage"
         )
         if st.button("🚀 START PRECISION SPRAY", type="primary", use_container_width=True, key="standalone_spray_btn"):
