@@ -1478,6 +1478,43 @@ if state:
     image_available = raspberry.get("image_available", False)
     esp32_online = esp32.get("online", False)
 
+    # --------------------------------------------------------
+    # LIVE AI RESULT FROM BACKEND /state
+    # --------------------------------------------------------
+    ai_prediction = raspberry.get("ai_prediction")
+    ai_confidence = float(
+        raspberry.get("ai_confidence", 0) or 0
+    )
+    ai_crop = raspberry.get("crop")
+    ai_disease = raspberry.get("disease")
+    ai_healthy = bool(raspberry.get("healthy", False))
+    segmentation_performed = bool(
+        raspberry.get("segmentation_performed", False)
+    )
+    fruit_area_pixels = int(
+        raspberry.get("fruit_area_pixels", 0) or 0
+    )
+    disease_area_pixels = int(
+        raspberry.get("disease_area_pixels", 0) or 0
+    )
+    severity_percent = float(
+        raspberry.get("severity_percent", 0) or 0
+    )
+    pesticide = raspberry.get("pesticide")
+    base_dosage_ml = float(
+        raspberry.get("base_dosage_ml", 0) or 0
+    )
+    recommended_dosage_ml = float(
+        raspberry.get("recommended_dosage_ml", 0) or 0
+    )
+    spray_required = bool(
+        raspberry.get("spray_required", False)
+    )
+    ai_message = raspberry.get(
+        "ai_message",
+        "Awaiting Analysis"
+    )
+
     rover_status = esp32.get(
         "rover_status",
         "STOPPED"
@@ -1494,6 +1531,22 @@ else:
     raspberry_online = False
     image_available = False
     esp32_online = False
+
+    ai_prediction = None
+    ai_confidence = 0.0
+    ai_crop = None
+    ai_disease = None
+    ai_healthy = False
+    segmentation_performed = False
+    fruit_area_pixels = 0
+    disease_area_pixels = 0
+    severity_percent = 0.0
+    pesticide = None
+    base_dosage_ml = 0.0
+    recommended_dosage_ml = 0.0
+    spray_required = False
+    ai_message = "Backend offline"
+
     rover_status = "UNKNOWN"
     current_speed = 50
 
@@ -1892,22 +1945,61 @@ if page == "🏠 Dashboard":
         </div>
         """)
 
-        dosage = st.number_input(
-            "Spray dosage (ml)",
-            min_value=1.0,
-            max_value=500.0,
-            value=25.0,
-            step=1.0,
-            key="dashboard_dosage"
-        )
+        # ----------------------------------------------------
+        # AI RECOMMENDED DOSAGE
+        # ----------------------------------------------------
+        if spray_required and recommended_dosage_ml > 0:
 
-        st.caption("Allowed range: 1 – 500 ml")
+            st.html(f"""
+            <div class="sprayer-status">
+                <div class="sprayer-label">
+                    AI RECOMMENDED DOSAGE
+                </div>
+                <div class="sprayer-value">
+                    💧 {recommended_dosage_ml:.2f} ml
+                </div>
+            </div>
+            """)
+
+            dosage = float(recommended_dosage_ml)
+
+            st.caption(
+                f"Treatment: {pesticide or 'N/A'} • "
+                f"Severity: {severity_percent:.2f}%"
+            )
+
+        elif ai_healthy:
+
+            dosage = 0.0
+
+            st.html("""
+            <div class="sprayer-info">
+                🌿 Plant is healthy. No spraying is required.
+            </div>
+            """)
+
+        else:
+
+            dosage = 0.0
+
+            st.html("""
+            <div class="sprayer-info">
+                💡 Capture and analyze a plant image first.
+                The AI-recommended dosage will appear here.
+            </div>
+            """)
+
+        spray_button_disabled = (
+            not spray_required
+            or recommended_dosage_ml <= 0
+        )
 
         if st.button(
             "🚿 START PRECISION SPRAY",
             type="primary",
             use_container_width=True,
-            key="dashboard_spray"
+            key="dashboard_spray",
+            disabled=spray_button_disabled
         ):
 
             response = send_spray(dosage)
@@ -1916,7 +2008,7 @@ if page == "🏠 Dashboard":
 
                 if response.status_code == 200:
                     st.success(
-                        f"Spray command sent: {dosage:.1f} ml"
+                        f"Spray command sent: {dosage:.2f} ml"
                     )
 
                 elif response.status_code == 409:
@@ -1931,8 +2023,9 @@ if page == "🏠 Dashboard":
 
         st.html("""
         <div class="sprayer-info">
-            💡 The selected dosage will be sent
-            to the Raspberry Pi sprayer.
+            💡 The dosage shown above is calculated by the
+            CropIQ AI pipeline and sent directly to the
+            Raspberry Pi when Start Precision Spray is pressed.
         </div>
         """)
 
@@ -1989,64 +2082,214 @@ if page == "🏠 Dashboard":
 
     ai1, ai2, ai3 = st.columns([1, 1.15, 0.8])
 
+    # --------------------------------------------------------
+    # PLANT ANALYSIS
+    # --------------------------------------------------------
     with ai1:
-        st.html("""
-        <div class="ai-card">
-            <div class="ai-title">
-                🌿 Plant Analysis
-            </div>
-            <div class="ai-label">
-                DETECTION STATUS
-            </div>
-            <div class="ai-value">
-                Awaiting Analysis
-            </div>
-            <div class="ai-text">
-                Capture a plant image to begin
-                AI-powered plant analysis.
-            </div>
-        </div>
-        """)
 
+        if ai_prediction:
+
+            status_text = (
+                "HEALTHY"
+                if ai_healthy
+                else "DISEASE DETECTED"
+            )
+
+            st.html(f"""
+            <div class="ai-card">
+                <div class="ai-title">
+                    🌿 Plant Analysis
+                </div>
+                <div class="ai-label">
+                    DETECTION STATUS
+                </div>
+                <div class="ai-value">
+                    {status_text}
+                </div>
+                <div class="ai-text">
+                    Crop: {ai_crop or "Unknown"}<br>
+                    Prediction: {
+                        str(ai_prediction).replace("_", " ")
+                    }<br>
+                    Confidence: {ai_confidence:.2f}%
+                </div>
+            </div>
+            """)
+
+        else:
+
+            st.html("""
+            <div class="ai-card">
+                <div class="ai-title">
+                    🌿 Plant Analysis
+                </div>
+                <div class="ai-label">
+                    DETECTION STATUS
+                </div>
+                <div class="ai-value">
+                    Awaiting Analysis
+                </div>
+                <div class="ai-text">
+                    Capture a plant image to begin
+                    AI-powered plant analysis.
+                </div>
+            </div>
+            """)
+
+    # --------------------------------------------------------
+    # DISEASE DETECTION
+    # --------------------------------------------------------
     with ai2:
-        st.html("""
-        <div class="ai-card ai-alert">
-            <div class="ai-title">
-                🔬 Disease Detection
-            </div>
-            <div class="ai-label">
-                DETECTED CONDITION
-            </div>
-            <div class="ai-value">
-                No analysis available
-            </div>
-            <div class="ai-text">
-                Connect your disease detection
-                model to display diagnosis and
-                confidence.
-            </div>
-        </div>
-        """)
 
+        if ai_prediction:
+
+            if ai_healthy:
+                condition = "Healthy"
+                condition_text = (
+                    f"{ai_crop or 'Plant'} classified as healthy.<br>"
+                    f"Confidence: {ai_confidence:.2f}%<br>"
+                    "Segmentation: Not required"
+                )
+            else:
+                condition = ai_disease or "Unknown"
+                condition_text = (
+                    f"Crop: {ai_crop or 'Unknown'}<br>"
+                    f"Severity: {severity_percent:.2f}%<br>"
+                    f"Fruit area: {fruit_area_pixels:,} px<br>"
+                    f"Disease area: {disease_area_pixels:,} px"
+                )
+
+            card_class = "" if ai_healthy else "ai-alert"
+
+            st.html(f"""
+            <div class="ai-card {card_class}">
+                <div class="ai-title">
+                    🔬 Disease Detection
+                </div>
+                <div class="ai-label">
+                    DETECTED CONDITION
+                </div>
+                <div class="ai-value">
+                    {condition}
+                </div>
+                <div class="ai-text">
+                    {condition_text}
+                </div>
+            </div>
+            """)
+
+        else:
+
+            st.html("""
+            <div class="ai-card ai-alert">
+                <div class="ai-title">
+                    🔬 Disease Detection
+                </div>
+                <div class="ai-label">
+                    DETECTED CONDITION
+                </div>
+                <div class="ai-value">
+                    No analysis available
+                </div>
+                <div class="ai-text">
+                    Capture a plant image to run
+                    CropIQ AI analysis.
+                </div>
+            </div>
+            """)
+
+    # --------------------------------------------------------
+    # RECOMMENDATION
+    # --------------------------------------------------------
     with ai3:
-        st.html("""
+
+        if ai_healthy:
+
+            recommendation = "NO SPRAY"
+            recommendation_text = (
+                "Plant is healthy.<br>"
+                "No treatment is required."
+            )
+
+        elif spray_required:
+
+            recommendation = (
+                f"{recommended_dosage_ml:.2f} ml"
+            )
+            recommendation_text = (
+                f"Pesticide: {pesticide or 'N/A'}<br>"
+                f"Base dosage: {base_dosage_ml:.2f} ml<br>"
+                f"Severity: {severity_percent:.2f}%"
+            )
+
+        elif ai_prediction:
+
+            recommendation = "NO SPRAY"
+            recommendation_text = (
+                "No active spray recommendation."
+            )
+
+        else:
+
+            recommendation = "AWAITING"
+            recommendation_text = (
+                "Treatment recommendation will appear "
+                "after AI detection."
+            )
+
+        st.html(f"""
         <div class="ai-card ai-recommend">
             <div class="ai-title">
                 💡 Recommendation
             </div>
             <div class="ai-label">
-                ACTION
+                RECOMMENDED ACTION
             </div>
             <div class="ai-value">
-                Awaiting Detection
+                {recommendation}
             </div>
             <div class="ai-text">
-                Treatment recommendations will
-                appear after AI detection.
+                {recommendation_text}
             </div>
         </div>
         """)
 
+    # --------------------------------------------------------
+    # AI TREATMENT DETAILS
+    # --------------------------------------------------------
+    if ai_prediction and not ai_healthy:
+
+        st.html("""
+        <div class="section-title">
+            🎯 Precision Treatment Details
+        </div>
+        """)
+
+        d1, d2, d3, d4 = st.columns(4)
+
+        with d1:
+            st.metric(
+                "Severity",
+                f"{severity_percent:.2f}%"
+            )
+
+        with d2:
+            st.metric(
+                "Pesticide",
+                pesticide or "N/A"
+            )
+
+        with d3:
+            st.metric(
+                "Base Dosage",
+                f"{base_dosage_ml:.2f} ml"
+            )
+
+        with d4:
+            st.metric(
+                "Recommended",
+                f"{recommended_dosage_ml:.2f} ml"
+            )
 
     # --------------------------------------------------------
     # WORKFLOW
@@ -2262,27 +2505,54 @@ elif page == "💧 Sprayer Control":
             f"{float(sprayed_amount):.1f} ml"
         )
 
-    dosage = st.number_input(
-        "Spray dosage (ml)",
-        min_value=1.0,
-        max_value=500.0,
-        value=25.0,
-        step=1.0,
-        key="sprayer_page_dosage"
-    )
+    if spray_required and recommended_dosage_ml > 0:
+
+        st.metric(
+            "AI Recommended Dosage",
+            f"{recommended_dosage_ml:.2f} ml"
+        )
+
+        st.caption(
+            f"Pesticide: {pesticide or 'N/A'} • "
+            f"Severity: {severity_percent:.2f}%"
+        )
+
+        dosage = float(recommended_dosage_ml)
+
+    elif ai_healthy:
+
+        st.success(
+            f"{ai_crop or 'Plant'} is healthy. "
+            "No spraying is required."
+        )
+
+        dosage = 0.0
+
+    else:
+
+        st.info(
+            "Capture and analyze a plant image first. "
+            "The AI recommendation will appear here."
+        )
+
+        dosage = 0.0
 
     if st.button(
         "🚿 START PRECISION SPRAY",
         type="primary",
         use_container_width=True,
-        key="page_spray"
+        key="page_spray",
+        disabled=(
+            not spray_required
+            or recommended_dosage_ml <= 0
+        )
     ):
 
         response = send_spray(dosage)
 
         if response and response.status_code == 200:
             st.success(
-                f"Spray command sent: {dosage:.1f} ml"
+                f"Spray command sent: {dosage:.2f} ml"
             )
 
         elif response:
@@ -2550,6 +2820,35 @@ elif page == "🌿 AI Detection":
     pi_confidence = float(
         pi_data.get("ai_confidence", 0) or 0
     )
+    pi_crop = pi_data.get("crop")
+    pi_disease = pi_data.get("disease")
+    pi_healthy = bool(pi_data.get("healthy", False))
+    pi_segmentation = bool(
+        pi_data.get("segmentation_performed", False)
+    )
+    pi_fruit_area = int(
+        pi_data.get("fruit_area_pixels", 0) or 0
+    )
+    pi_disease_area = int(
+        pi_data.get("disease_area_pixels", 0) or 0
+    )
+    pi_severity = float(
+        pi_data.get("severity_percent", 0) or 0
+    )
+    pi_pesticide = pi_data.get("pesticide")
+    pi_base_dosage = float(
+        pi_data.get("base_dosage_ml", 0) or 0
+    )
+    pi_recommended_dosage = float(
+        pi_data.get("recommended_dosage_ml", 0) or 0
+    )
+    pi_spray_required = bool(
+        pi_data.get("spray_required", False)
+    )
+    pi_message = pi_data.get(
+        "ai_message",
+        "Awaiting Analysis"
+    )
 
     image = get_latest_image()
 
@@ -2563,7 +2862,7 @@ elif page == "🌿 AI Detection":
         )
 
         # ----------------------------------------------------
-        # RASPBERRY PI ML PREDICTION
+        # COMPLETE RASPBERRY PI AI RESULT
         # ----------------------------------------------------
 
         if pi_prediction:
@@ -2577,7 +2876,15 @@ elif page == "🌿 AI Detection":
             <div class="pi-ai-result">
 
                 <div class="pi-ai-title">
-                    🤖 Raspberry Pi ML Prediction
+                    🤖 Raspberry Pi AI Analysis
+                </div>
+
+                <div class="pi-ai-label">
+                    CROP
+                </div>
+
+                <div class="pi-ai-value">
+                    {pi_crop or "Unknown"}
                 </div>
 
                 <div class="pi-ai-label">
@@ -2597,9 +2904,7 @@ elif page == "🌿 AI Detection":
                 </div>
 
                 <div class="pi-ai-note">
-                    Prediction generated automatically when the
-                    Raspberry Pi uploaded the captured image.
-                    Model: CropIQ EfficientNetB0.
+                    {pi_message}
                 </div>
 
             </div>
@@ -2615,10 +2920,104 @@ elif page == "🌿 AI Detection":
                 )
             )
 
+            if pi_healthy:
+
+                st.success(
+                    f"{pi_crop or 'Plant'} is healthy. "
+                    "No spraying is required."
+                )
+
+            else:
+
+                st.html(f"""
+                <div class="ai-card ai-alert">
+                    <div class="ai-title">
+                        🔬 Disease & Severity
+                    </div>
+
+                    <div class="ai-label">
+                        DISEASE
+                    </div>
+                    <div class="ai-value">
+                        {pi_disease or "Unknown"}
+                    </div>
+
+                    <div class="ai-label">
+                        SEVERITY
+                    </div>
+                    <div class="ai-value">
+                        {pi_severity:.2f}%
+                    </div>
+
+                    <div class="ai-text">
+                        Fruit area: {pi_fruit_area:,} pixels<br>
+                        Disease area: {pi_disease_area:,} pixels<br>
+                        Segmentation performed: {
+                            "Yes" if pi_segmentation else "No"
+                        }
+                    </div>
+                </div>
+                """)
+
+                r1, r2, r3 = st.columns(3)
+
+                with r1:
+                    st.metric(
+                        "Pesticide",
+                        pi_pesticide or "N/A"
+                    )
+
+                with r2:
+                    st.metric(
+                        "Base Dosage",
+                        f"{pi_base_dosage:.2f} ml"
+                    )
+
+                with r3:
+                    st.metric(
+                        "Recommended",
+                        f"{pi_recommended_dosage:.2f} ml"
+                    )
+
+                if pi_spray_required:
+
+                    st.info(
+                        f"Recommended action: spray "
+                        f"{pi_recommended_dosage:.2f} ml "
+                        f"of {pi_pesticide or 'the configured treatment'}."
+                    )
+
+                    if st.button(
+                        "🚿 START PRECISION SPRAY",
+                        type="primary",
+                        use_container_width=True,
+                        key="ai_page_spray"
+                    ):
+
+                        response = send_spray(
+                            pi_recommended_dosage
+                        )
+
+                        if response and response.status_code == 200:
+                            st.success(
+                                "Spray command sent to Raspberry Pi."
+                            )
+
+                        elif response:
+                            st.error(
+                                f"Spray failed: {response.text}"
+                            )
+
+                else:
+
+                    st.warning(
+                        "No active spray recommendation is available."
+                    )
+
         else:
 
             st.info(
-                "The Raspberry Pi image is available, but no ML prediction "
+                "The Raspberry Pi image is available, but no AI analysis "
                 "has been recorded yet. Capture/upload a new image to run AI detection."
             )
 
@@ -2844,7 +3243,21 @@ elif page == "⚙️ Settings":
         st.metric("Minimum Dosage", "1 ml")
 
     with c2:
-        st.metric("Maximum Dosage", "500 ml")
+        if spray_required and recommended_dosage_ml > 0:
+            st.metric(
+                "Current AI Recommendation",
+                f"{recommended_dosage_ml:.2f} ml"
+            )
+        elif ai_healthy:
+            st.metric(
+                "Current AI Recommendation",
+                "No spray"
+            )
+        else:
+            st.metric(
+                "Current AI Recommendation",
+                "Awaiting analysis"
+            )
 
     st.subheader("Hardware")
 
