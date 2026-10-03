@@ -1,7 +1,7 @@
 import io
 import os
 import numpy as np
-import tensorflow as tf
+import onnxruntime as ort
 from PIL import Image
 from typing import Optional
 
@@ -33,10 +33,10 @@ app.add_middleware(
 )
 
 # =====================================================
-# AI MODEL PIPELINE
+# AI MODEL PIPELINE (ONNX RUNTIME)
 # =====================================================
 
-MODEL_PATH = "model/cropiq_final_efficientnetb0.keras"
+MODEL_PATH = "model/cropiq_efficientnetb0.onnx"
 
 class_names = [
     "Guava_Anthracnose",
@@ -48,19 +48,19 @@ class_names = [
     "Pomegranate_Healthy"
 ]
 
-model = None
+ort_session = None
 if os.path.exists(MODEL_PATH):
     try:
-        model = tf.keras.models.load_model(MODEL_PATH)
-        print("CropIQ AI model loaded successfully")
+        ort_session = ort.InferenceSession(MODEL_PATH)
+        print("✅ CropIQ ONNX AI model loaded successfully")
     except Exception as e:
-        print(f"Warning: Failed to load model from {MODEL_PATH}: {e}")
+        print(f"Warning: Failed to load ONNX model from {MODEL_PATH}: {e}")
 else:
-    print(f"Warning: AI Model file not found at {MODEL_PATH}")
+    print(f"Warning: ONNX Model file not found at {MODEL_PATH}")
 
 
 def predict_image(image_data: bytes):
-    if model is None:
+    if ort_session is None:
         return "Guava_fruit_fly", 89.32
 
     image = Image.open(io.BytesIO(image_data)).convert("RGB")
@@ -68,9 +68,13 @@ def predict_image(image_data: bytes):
     image_array = np.array(image, dtype=np.float32)
     image_array = np.expand_dims(image_array, axis=0)
 
-    predictions = model.predict(image_array, verbose=0)
-    predicted_index = int(np.argmax(predictions[0]))
-    confidence = float(predictions[0][predicted_index]) * 100
+    # ONNX Inference
+    input_name = ort_session.get_inputs()[0].name
+    outputs = ort_session.run(None, {input_name: image_array})
+    predictions = outputs[0][0]
+
+    predicted_index = int(np.argmax(predictions))
+    confidence = float(predictions[predicted_index]) * 100
     predicted_class = class_names[predicted_index]
 
     return predicted_class, confidence
@@ -79,7 +83,7 @@ def predict_image(image_data: bytes):
 # GLOBAL HARDWARE STATE
 # =====================================================
 
-# Raspberry Pi State (Restored to original HTTP Polling)
+# Raspberry Pi State (HTTP Polling)
 spray_command = None
 spray_status = "Ready"
 sprayed_amount = 0.0
@@ -90,13 +94,13 @@ latest_image_type = "image/jpeg"
 ai_prediction = None
 ai_confidence = 0.0
 
-# ESP32 Rover State
+# ESP32 Rover State (WebSocket)
 esp32_socket: Optional[WebSocket] = None
 esp32_online = False
 rover_status = "STOPPED"
 rover_speed = 50
 
-# Global system_state dictionary for Streamlit compatibility
+# Global system_state dictionary for Streamlit UI compatibility
 system_state = {
     "esp32": {
         "online": False,
@@ -157,7 +161,7 @@ def get_state():
     }
 
 # =====================================================
-# RASPBERRY PI ENDPOINTS (ORIGINAL HTTP POLLING)
+# RASPBERRY PI ENDPOINTS (ORIGINAL UNCHANGED HTTP POLLING)
 # =====================================================
 
 @app.post("/spray")
@@ -350,7 +354,7 @@ async def esp32_websocket(websocket: WebSocket):
         system_state["esp32"]["online"] = False
 
 # =====================================================
-# ROVER CONTROL ENDPOINTS (SUPPORTING BOTH STREAMLIT REQUEST FORMATS)
+# ROVER CONTROL ENDPOINTS (ORIGINAL UNCHANGED SINGLE CHARACTER)
 # =====================================================
 
 @app.post("/rover")
@@ -368,7 +372,7 @@ async def rover_control(request: RoverRequest):
     rover_speed = max(0, min(100, request.speed))
 
     try:
-        # Send exact single character ("F", "B", "L", "R", "S") required by rover.ino
+        # Sends raw single character ("F", "B", "L", "R", "S") required by rover.ino
         await esp32_socket.send_text(command)
     except Exception as e:
         esp32_online = False
@@ -390,7 +394,7 @@ async def rover_control(request: RoverRequest):
     }
 
 
-# Secondary alias for control_rover if Streamlit uses RoverCommand payload
+# Alias supporting Streamlit's RoverCommand payload format
 @app.post("/control_rover")
 async def control_rover_alias(rover_cmd: RoverCommand):
     return await rover_control(RoverRequest(command=rover_cmd.command, speed=rover_cmd.speed))
