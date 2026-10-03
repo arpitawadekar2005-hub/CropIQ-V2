@@ -1973,6 +1973,28 @@ if page == "🏠 Dashboard":
         """)
 
 
+    # --------------------------------------------------------
+    # PROMINENT AI RESULT
+    # --------------------------------------------------------
+
+    st.html("""
+    <div class="section-title">
+        🌿 PLANT ANALYSIS
+    </div>
+    """)
+
+    render_ai_result(
+        prediction=ai_prediction,
+        confidence=ai_confidence,
+        crop=ai_crop,
+        disease=ai_disease,
+        healthy=ai_healthy,
+        severity=severity_percent,
+        pesticide_name=pesticide,
+        recommended_dosage=recommended_dosage_ml,
+    )
+
+
     st.html("""
     <div class="section-title">
         Plant Monitoring & Control
@@ -2144,35 +2166,31 @@ if page == "🏠 Dashboard":
         """)
 
         # ----------------------------------------------------
-        # AI RECOMMENDED DOSAGE
+        # AI TREATMENT RESULT
         # ----------------------------------------------------
         if spray_required and recommended_dosage_ml > 0:
 
-            st.html(f"""
-            <div class="sprayer-status">
-                <div class="sprayer-label">
-                    AI RECOMMENDED DOSAGE
-                </div>
-                <div class="sprayer-value">
-                    💧 {recommended_dosage_ml:.2f} ml
-                </div>
-            </div>
-            """)
-
             dosage = float(recommended_dosage_ml)
 
-            st.caption(
-                f"Treatment: {pesticide or 'N/A'} • "
-                f"Severity: {severity_percent:.2f}%"
-            )
+            st.html(f"""
+            <div class="ai-result-panel">
+                <div class="ai-result-heading">🎯 PRECISION SPRAY TARGET</div>
+                <div class="ai-result-row"><span>Crop</span><strong>{ai_crop or 'N/A'}</strong></div>
+                <div class="ai-result-row"><span>Disease</span><strong>{ai_disease or ai_prediction or 'N/A'}</strong></div>
+                <div class="ai-result-row"><span>Severity</span><strong>{severity_percent:.2f}%</strong></div>
+                <div class="ai-result-row"><span>Pesticide</span><strong>{pesticide or 'N/A'}</strong></div>
+                <div class="ai-result-dose">💧 RECOMMENDED DOSAGE: {recommended_dosage_ml:.2f} ml</div>
+            </div>
+            """)
 
         elif ai_healthy:
 
             dosage = 0.0
 
             st.html("""
-            <div class="sprayer-info">
-                🌿 Plant is healthy. No spraying is required.
+            <div class="ai-result-panel healthy">
+                <div class="ai-result-heading">🌿 PLANT IS HEALTHY</div>
+                <div class="ai-result-dose">NO SPRAY REQUIRED</div>
             </div>
             """)
 
@@ -2181,9 +2199,9 @@ if page == "🏠 Dashboard":
             dosage = 0.0
 
             st.html("""
-            <div class="sprayer-info">
-                💡 Capture and analyze a plant image first.
-                The AI-recommended dosage will appear here.
+            <div class="ai-result-panel">
+                <div class="ai-result-heading">💡 AWAITING AI ANALYSIS</div>
+                <div class="ai-result-row"><span>Action</span><strong>Capture and analyze a plant image first.</strong></div>
             </div>
             """)
 
@@ -2267,27 +2285,6 @@ if page == "🏠 Dashboard":
         </div>
         """)
 
-
-    # --------------------------------------------------------
-    # UNIFIED AI RESULT
-    # --------------------------------------------------------
-
-    st.html("""
-    <div class="section-title">
-        🌿 AI Detection Result
-    </div>
-    """)
-
-    render_ai_result(
-        prediction=ai_prediction,
-        confidence=ai_confidence,
-        crop=ai_crop,
-        disease=ai_disease,
-        healthy=ai_healthy,
-        severity=severity_percent,
-        pesticide_name=pesticide,
-        recommended_dosage=recommended_dosage_ml,
-    )
 
     # --------------------------------------------------------
     # WORKFLOW
