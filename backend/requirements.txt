@@ -1,8 +1,7 @@
 fastapi
 uvicorn[standard]
 python-multipart
-requests
+onnxruntime
 numpy
 pillow
-onnxruntime
-pandas
+pydantic
