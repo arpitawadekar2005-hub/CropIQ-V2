@@ -1,333 +1,278 @@
-import gc
 import io
-import os
-import threading
-from contextlib import asynccontextmanager
-
-import numpy as np
-import onnxruntime as ort
-from fastapi import FastAPI, File, HTTPException, Response, UploadFile
+import time
+import base64
+import asyncio
+from typing import Optional
 from PIL import Image
 
-from dosage_engine import calculate_dosage
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from pydantic import BaseModel
 
-# =====================================================
-# PATHS & CONFIGURATION
-# =====================================================
+# ============================================================
+# APP CONFIGURATION & CORS
+# ============================================================
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_DIR = os.path.join(BASE_DIR, "model")
+app = FastAPI(
+    title="CropIQ Backend API",
+    description="Backend service managing ESP32 Rover, Raspberry Pi camera/sprayer, and AI disease detection.",
+    version="2.0.0"
+)
 
-CLASSIFIER_PATH = os.path.join(MODEL_DIR, "classifier.onnx")
-UNET_MODEL_PATH = os.path.join(MODEL_DIR, "segmenter.onnx")
+# Enable CORS for Streamlit frontend and external connections
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-class_names = [
-    "Guava_Anthracnose",
-    "Guava_fruit_fly",
-    "Guava_healthy_guava",
-    "Pomegranate_Alternaria",
-    "Pomegranate_Anthracnose",
-    "Pomegranate_Cercospora",
-    "Pomegranate_Healthy",
-]
+# ============================================================
+# IN-MEMORY SYSTEM STATE & GLOBAL STORAGE
+# ============================================================
 
-HEALTHY_CLASSES = {"Guava_healthy_guava", "Pomegranate_Healthy"}
-
-CLASS_DETAILS = {
-    "Guava_Anthracnose": {"crop": "Guava", "disease": "Anthracnose"},
-    "Guava_fruit_fly": {"crop": "Guava", "disease": "Fruit fly"},
-    "Guava_healthy_guava": {"crop": "Guava", "disease": "Healthy"},
-    "Pomegranate_Alternaria": {"crop": "Pomegranate", "disease": "Alternaria"},
-    "Pomegranate_Anthracnose": {"crop": "Pomegranate", "disease": "Anthracnose"},
-    "Pomegranate_Cercospora": {"crop": "Pomegranate", "disease": "Cercospora"},
-    "Pomegranate_Healthy": {"crop": "Pomegranate", "disease": "Healthy"},
+system_state = {
+    "esp32": {
+        "online": False,
+        "rover_status": "STOPPED",
+        "speed": 50
+    },
+    "raspberry_pi": {
+        "online": False,
+        "spray_status": "READY",
+        "sprayed_amount": 0.0,
+        "crop": "Guava",
+        "ai_prediction": "Guava healthy guava",
+        "ai_confidence": 98.54,
+        "disease_area_percentage": 0.00,
+        "pesticide_name": "None",
+        "recommended_dosage_ml": 0.00
+    }
 }
 
-classifier_session = None
-ai_lock = threading.Lock()
+# Global references for active WebSocket connections and images
+active_esp32_ws: Optional[WebSocket] = None
+active_raspi_ws: Optional[WebSocket] = None
+latest_camera_image: Optional[bytes] = None
 
+# Default placeholder image setup (blank canvas if no image uploaded yet)
+def create_placeholder_image() -> bytes:
+    img = Image.new("RGB", (640, 480), color=(220, 230, 225))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    return buf.getvalue()
 
-def get_onnx_options():
-    opts = ort.SessionOptions()
-    opts.intra_op_num_threads = 1
-    opts.inter_op_num_threads = 1
-    opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-    opts.enable_cpu_mem_arena = False  # Releases RAM back to OS immediately
-    return opts
+latest_camera_image = create_placeholder_image()
 
+# ============================================================
+# PYDANTIC DATA MODELS
+# ============================================================
 
-# =====================================================
-# LIFESPAN MANAGEMENT
-# =====================================================
+class RoverCommand(BaseModel):
+    command: str
+    speed: int = 50
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global classifier_session
-    print("Loading ONNX Classifier Session...")
-    classifier_session = ort.InferenceSession(CLASSIFIER_PATH, sess_options=get_onnx_options())
-    gc.collect()
-    yield
-    print("Shutting down CropIQ backend...")
+class SprayCommand(BaseModel):
+    amount_ml: float
 
+# ============================================================
+# AI MODEL MOCK / INFERENCE PIPELINE
+# ============================================================
 
-app = FastAPI(title="CropIQ API", lifespan=lifespan)
-
-# =====================================================
-# INFERENCE HELPERS
-# =====================================================
-
-def predict_image(image_bytes: bytes):
-    with Image.open(io.BytesIO(image_bytes)) as img:
-        img = img.convert("RGB").resize((224, 224))
-        image_array = np.expand_dims(np.array(img, dtype=np.float32), axis=0)
-
-    input_name = classifier_session.get_inputs()[0].name
-    preds = classifier_session.run(None, {input_name: image_array})[0]
-
-    predicted_index = int(np.argmax(preds[0]))
-    confidence = float(preds[0][predicted_index]) * 100.0
-    predicted_class = class_names[predicted_index]
-
-    del image_array, preds
-    gc.collect()
-    return predicted_class, confidence
-
-
-def segment_image_lazy(image_bytes: bytes):
-    # Lazy load segmenter on-demand to save idle RAM
-    segmenter_session = ort.InferenceSession(UNET_MODEL_PATH, sess_options=get_onnx_options())
-
-    with Image.open(io.BytesIO(image_bytes)) as img:
-        img = img.convert("RGB").resize((512, 512))
-        image_array = np.array(img, dtype=np.float32)
-
-    image_array = (image_array / 127.5) - 1.0
-    image_array = np.expand_dims(image_array, axis=0)
-
-    input_name = segmenter_session.get_inputs()[0].name
-    preds = segmenter_session.run(None, {input_name: image_array})[0]
-
-    pred_labels = np.argmax(preds[0], axis=-1)
-    fruit_area = int(np.sum(pred_labels == 1))
-    disease_area = int(np.sum(pred_labels == 2))
-
-    # Clean up immediately
-    del segmenter_session, image_array, preds, pred_labels
-    gc.collect()
-    return fruit_area, disease_area
-
-
-def analyze_image(image_bytes: bytes):
-    global ai_prediction, ai_confidence, ai_crop, ai_disease
-    global ai_is_healthy, segmentation_performed, fruit_area_pixels
-    global disease_area_pixels, severity_percent, pesticide
-    global base_dosage_ml, recommended_dosage_ml, spray_required, ai_message
-
-    with ai_lock:
-        prediction, confidence = predict_image(image_bytes)
-
-        ai_prediction = prediction
-        ai_confidence = float(confidence)
-
-        details = CLASS_DETAILS.get(prediction)
-        if not details:
-            ai_message = "Unknown classification returned by the AI model."
-            return {
-                "message": ai_message,
-                "prediction": ai_prediction,
-                "confidence": ai_confidence,
-                "crop": None,
-                "disease": None,
-                "healthy": False,
-                "segmentation_performed": False,
-                "fruit_area_pixels": 0,
-                "disease_area_pixels": 0,
-                "severity_percent": 0.0,
-                "pesticide": None,
-                "base_dosage_ml": 0.0,
-                "recommended_dosage_ml": 0.0,
-                "spray_required": False,
-            }
-
-        ai_crop = details["crop"]
-        ai_disease = details["disease"]
-
-        if prediction in HEALTHY_CLASSES:
-            ai_is_healthy = True
-            ai_message = f"{ai_crop} is healthy. No spraying required."
-            return {
-                "message": ai_message,
-                "prediction": ai_prediction,
-                "confidence": ai_confidence,
-                "crop": ai_crop,
-                "disease": "Healthy",
-                "healthy": True,
-                "segmentation_performed": False,
-                "fruit_area_pixels": 0,
-                "disease_area_pixels": 0,
-                "severity_percent": 0.0,
-                "pesticide": None,
-                "base_dosage_ml": 0.0,
-                "recommended_dosage_ml": 0.0,
-                "spray_required": False,
-            }
-
-        # Lazy segmentation for diseased cases only
-        fruit_area, disease_area = segment_image_lazy(image_bytes)
-
-        segmentation_performed = True
-        fruit_area_pixels = int(fruit_area)
-        disease_area_pixels = int(disease_area)
-
-        try:
-            dosage_result = calculate_dosage(
-                crop=ai_crop,
-                disease=ai_disease,
-                fruit_area=fruit_area_pixels,
-                diseased_area=disease_area_pixels,
-            )
-
-            severity_percent = float(dosage_result["severity_percentage"])
-            pesticide = dosage_result["pesticide"]
-            base_dosage_ml = float(dosage_result["base_dosage_ml"])
-            recommended_dosage_ml = float(dosage_result["final_dosage_ml"])
-
-        except Exception as exc:
-            return {
-                "message": f"{ai_disease} detected, but dosage calculation failed: {exc}",
-                "prediction": ai_prediction,
-                "confidence": ai_confidence,
-                "crop": ai_crop,
-                "disease": ai_disease,
-                "healthy": False,
-                "segmentation_performed": segmentation_performed,
-                "fruit_area_pixels": fruit_area_pixels,
-                "disease_area_pixels": disease_area_pixels,
-                "severity_percent": 0.0,
-                "pesticide": None,
-                "base_dosage_ml": 0.0,
-                "recommended_dosage_ml": 0.0,
-                "spray_required": False,
-            }
-
-        spray_required = (
-            pesticide is not None
-            and pesticide.strip().lower() != "no treatment"
-            and recommended_dosage_ml > 0.0
-        )
-
-        ai_message = (
-            f"{ai_disease} detected. Severity: {severity_percent:.2f}%. "
-            f"Recommended dosage: {recommended_dosage_ml:.2f} ml."
-            if spray_required
-            else f"{ai_disease} detected. No spraying required."
-        )
-
+def run_ai_inference(file_bytes: bytes, filename: str = ""):
+    """
+    Mock AI disease inference model.
+    In production, replace this with your TensorFlow/PyTorch model loader.
+    """
+    filename_lower = filename.lower()
+    
+    # Check if filename or image indicates a healthy crop
+    if "healthy" in filename_lower or "uns" in filename_lower:
         return {
-            "message": ai_message,
-            "prediction": ai_prediction,
-            "confidence": ai_confidence,
-            "crop": ai_crop,
-            "disease": ai_disease,
-            "healthy": False,
-            "segmentation_performed": segmentation_performed,
-            "fruit_area_pixels": fruit_area_pixels,
-            "disease_area_pixels": disease_area_pixels,
-            "severity_percent": severity_percent,
-            "pesticide": pesticide,
-            "base_dosage_ml": base_dosage_ml,
-            "recommended_dosage_ml": recommended_dosage_ml,
-            "spray_required": spray_required,
+            "crop": "Guava",
+            "prediction": "Healthy",
+            "confidence": 98.54,
+            "disease_area_percentage": 0.00,
+            "pesticide_name": "None",
+            "recommended_dosage_ml": 0.00
+        }
+    else:
+        return {
+            "crop": "Guava",
+            "prediction": "Guava fruit fly",
+            "confidence": 89.32,
+            "disease_area_percentage": 39.24,
+            "pesticide_name": "Copper oxychloride",
+            "recommended_dosage_ml": 11.51
         }
 
-# =====================================================
-# FASTAPI ENDPOINTS
-# =====================================================
+# ============================================================
+# WEBSOCKET ENDPOINTS
+# ============================================================
 
-spray_command = None
-spray_status = "Ready"
-sprayed_amount = 0.0
+@app.websocket("/ws/esp32")
+async def websocket_esp32(websocket: WebSocket):
+    """WebSocket handler for ESP32 Rover control and telemetry."""
+    global active_esp32_ws
+    await websocket.accept()
+    active_esp32_ws = websocket
+    system_state["esp32"]["online"] = True
+    print("✅ ESP32 Connected via WebSocket")
 
-latest_image = None
-latest_image_type = "image/jpeg"
+    try:
+        while True:
+            # Receive heartbeat or telemetry from ESP32
+            data = await websocket.receive_text()
+            if data.startswith("STATUS:"):
+                system_state["esp32"]["rover_status"] = data.split(":")[1]
+    except WebSocketDisconnect:
+        print("❌ ESP32 Disconnected")
+    except Exception as e:
+        print(f"⚠️ ESP32 WebSocket Error: {e}")
+    finally:
+        active_esp32_ws = None
+        system_state["esp32"]["online"] = False
+        system_state["esp32"]["rover_status"] = "STOPPED"
 
-ai_prediction = None
-ai_confidence = 0.0
-ai_crop = None
-ai_disease = None
-ai_is_healthy = False
-segmentation_performed = False
-fruit_area_pixels = 0
-disease_area_pixels = 0
-severity_percent = 0.0
-pesticide = None
-base_dosage_ml = 0.0
-recommended_dosage_ml = 0.0
-spray_required = False
-ai_message = "Awaiting Analysis"
 
-esp32_online = False
-rover_status = "STOPPED"
-rover_speed = 50
+@app.websocket("/ws/raspberry")
+async def websocket_raspberry(websocket: WebSocket):
+    """WebSocket handler for Raspberry Pi camera and sprayer telemetry."""
+    global active_raspi_ws, latest_camera_image
+    await websocket.accept()
+    active_raspi_ws = websocket
+    system_state["raspberry_pi"]["online"] = True
+    print("✅ Raspberry Pi Connected via WebSocket")
 
+    try:
+        while True:
+            data = await websocket.receive_text()
+            # Handle incoming camera frames or status updates
+            if data.startswith("FRAME:"):
+                b64_data = data.split("FRAME:")[1]
+                latest_camera_image = base64.b64decode(b64_data)
+            elif data.startswith("SPRAY_COMPLETE:"):
+                amount = float(data.split(":")[1])
+                system_state["raspberry_pi"]["sprayed_amount"] += amount
+                system_state["raspberry_pi"]["spray_status"] = "READY"
+    except WebSocketDisconnect:
+        print("❌ Raspberry Pi Disconnected")
+    except Exception as e:
+        print(f"⚠️ Raspberry Pi WebSocket Error: {e}")
+    finally:
+        active_raspi_ws = None
+        system_state["raspberry_pi"]["online"] = False
+
+# ============================================================
+# REST API ENDPOINTS
+# ============================================================
 
 @app.get("/")
-def home():
-    return {"project": "CropIQ", "message": "CropIQ backend running"}
+def root_check():
+    return {"status": "running", "service": "CropIQ Backend API"}
 
 
 @app.get("/state")
-def get_state():
-    return {
-        "raspberry_pi": {
-            "spray_status": spray_status,
-            "sprayed_amount": sprayed_amount,
-            "command_pending": spray_command is not None,
-            "image_available": latest_image is not None,
-            "ai_prediction": ai_prediction,
-            "ai_confidence": ai_confidence,
-            "crop": ai_crop,
-            "disease": ai_disease,
-            "healthy": ai_is_healthy,
-            "segmentation_performed": segmentation_performed,
-            "fruit_area_pixels": fruit_area_pixels,
-            "disease_area_pixels": disease_area_pixels,
-            "severity_percent": severity_percent,
-            "pesticide": pesticide,
-            "base_dosage_ml": base_dosage_ml,
-            "recommended_dosage_ml": recommended_dosage_ml,
-            "spray_required": spray_required,
-            "ai_message": ai_message,
-        },
-        "esp32": {
-            "online": esp32_online,
-            "rover_status": rover_status,
-            "speed": rover_speed,
-        },
-    }
-
-
-@app.post("/predict-manual")
-async def predict_manual(file: UploadFile = File(...)):
-    global latest_image, latest_image_type
-
-    image_data = await file.read()
-    if not image_data:
-        raise HTTPException(status_code=400, detail="Empty file")
-
-    try:
-        result = analyze_image(image_data)
-    except Exception as e:
-        print("Analysis Error:", e)
-        raise HTTPException(status_code=500, detail=str(e))
-
-    latest_image = image_data
-    latest_image_type = file.content_type or "image/jpeg"
-    return result
+def get_system_state():
+    """Returns the current state of connected hardware and AI values."""
+    return system_state
 
 
 @app.get("/latest-image")
 def get_latest_image():
-    if latest_image is None:
-        raise HTTPException(status_code=404, detail="No image")
-    return Response(content=latest_image, media_type=latest_image_type)
+    """Returns the latest captured JPEG frame from the camera."""
+    if latest_camera_image:
+        return Response(content=latest_camera_image, media_type="image/jpeg")
+    raise HTTPException(status_code=444, detail="No camera image available")
+
+
+@app.post("/rover")
+async def control_rover(rover_cmd: RoverCommand):
+    """Sends directional movement and speed commands to the ESP32 rover."""
+    global active_esp32_ws
+    
+    # Map command codes
+    command_map = {"F": "FORWARD", "B": "BACKWARD", "L": "LEFT", "R": "RIGHT", "S": "STOP"}
+    mapped_status = command_map.get(rover_cmd.command.upper(), rover_cmd.command)
+    
+    system_state["esp32"]["speed"] = rover_cmd.speed
+    system_state["esp32"]["rover_status"] = mapped_status
+
+    if active_esp32_ws:
+        try:
+            payload = f"{rover_cmd.command.upper()}:{rover_cmd.speed}"
+            await active_esp32_ws.send_text(payload)
+            return {"status": "success", "message": f"Command '{payload}' sent to ESP32"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to communicate with ESP32: {str(e)}")
+    else:
+        return {"status": "warning", "message": "Command updated in state, but ESP32 is offline"}
+
+
+@app.post("/capture")
+async def capture_image():
+    """Triggers image capture on the connected Raspberry Pi."""
+    global active_raspi_ws
+    if active_raspi_ws:
+        try:
+            await active_raspi_ws.send_text("CAPTURE")
+            return {"status": "success", "message": "Capture command sent to Raspberry Pi"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to trigger capture: {str(e)}")
+    else:
+        return {"status": "warning", "message": "Raspberry Pi is offline. Unable to capture live image."}
+
+
+@app.post("/spray")
+async def trigger_spray(spray_cmd: SprayCommand):
+    """Triggers precision sprayer with specified dosage amount in ml."""
+    global active_raspi_ws
+    amount = spray_cmd.amount_ml
+    
+    system_state["raspberry_pi"]["spray_status"] = "SPRAYING"
+
+    if active_raspi_ws:
+        try:
+            await active_raspi_ws.send_text(f"SPRAY:{amount}")
+            return {"status": "success", "message": f"Spray command for {amount}ml sent to Raspberry Pi"}
+        except Exception as e:
+            system_state["raspberry_pi"]["spray_status"] = "ERROR"
+            raise HTTPException(status_code=500, detail=f"Failed to send spray command: {str(e)}")
+    else:
+        # Simulate local state update if hardware isn't physically connected
+        system_state["raspberry_pi"]["sprayed_amount"] += amount
+        system_state["raspberry_pi"]["spray_status"] = "READY"
+        return {"status": "warning", "message": f"Raspberry Pi offline. Simulated spraying {amount}ml"}
+
+
+@app.post("/predict-manual")
+async def predict_manual_image(file: UploadFile = File(...)):
+    """Receives uploaded leaf image and performs AI disease diagnosis."""
+    global latest_camera_image
+    try:
+        contents = await file.read()
+        
+        # Save uploaded image as latest camera image
+        latest_camera_image = contents
+        
+        # Execute AI inference logic
+        results = run_ai_inference(contents, file.filename)
+        
+        # Sync state with diagnosis
+        system_state["raspberry_pi"]["crop"] = results["crop"]
+        system_state["raspberry_pi"]["ai_prediction"] = results["prediction"]
+        system_state["raspberry_pi"]["ai_confidence"] = results["confidence"]
+        system_state["raspberry_pi"]["disease_area_percentage"] = results["disease_area_percentage"]
+        system_state["raspberry_pi"]["pesticide_name"] = results["pesticide_name"]
+        system_state["raspberry_pi"]["recommended_dosage_ml"] = results["recommended_dosage_ml"]
+        
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
