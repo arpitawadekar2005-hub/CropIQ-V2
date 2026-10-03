@@ -39,14 +39,14 @@ def base64_to_image(b64_string):
         return None
 
 # ============================================================
-# CSS
+# CSS & STYLING
 # ============================================================
 
 st.html("""
 <style>
 
 html, body {
-    font-family: Inter, Arial, sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 #MainMenu, footer {
@@ -80,7 +80,7 @@ header {
     padding-right: 1.5rem;
 }
 
-/* SIDEBAR */
+/* SIDEBAR STYLING */
 section[data-testid="stSidebar"] {
     background:
         radial-gradient(
@@ -147,76 +147,77 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-chil
 .online-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #20aa58; margin-right: 5px; }
 .header-date { color: #738079; font-size: 11px; margin-top: 7px; }
 
-/* HERO */
+/* HERO PANEL */
 .hero { position: relative; overflow: hidden; background: linear-gradient(135deg, #edf8ef, #ffffff); border: 1px solid #dce9e1; border-radius: 21px; padding: 23px 27px; margin-top: 17px; margin-bottom: 18px; box-shadow: 0 7px 24px rgba(25,70,50,0.055); }
 .hero-title { color: #043d31; font-size: 28px; font-weight: 850; letter-spacing: -0.5px; }
 .hero-green { color: #078845; }
 .hero-subtitle { color: #6c7a73; font-size: 13px; margin-top: 6px; }
 
-/* SECTION & PANELS */
-.section-title { color: #063e32; font-size: 20px; font-weight: 850; margin-top: 18px; margin-bottom: 11px; }
-.panel { background: white; border: 1px solid #dfe8e3; border-radius: 18px; padding: 17px; box-shadow: 0 6px 20px rgba(25,70,48,0.055); }
+/* CARDS & PANELS */
+.panel { background: white; border: 1px solid #dfe8e3; border-radius: 18px; padding: 17px; box-shadow: 0 6px 20px rgba(25,70,48,0.055); margin-bottom: 15px; }
+.panel-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.panel-title { color: #063d31; font-size: 17px; font-weight: 800; }
+.live-badge { background: #eafaf0; border: 1px solid #a2e0b6; color: #087d3f; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 12px; }
 
-/* SINGLE PLANT ANALYSIS CARD */
+/* ROVER CONTROL CARD */
+.rover-card {
+    background: white;
+    border: 1px solid #dfe8e3;
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 6px 20px rgba(25,70,48,0.055);
+    margin-bottom: 15px;
+}
+.rover-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.rover-title { color: #063d31; font-size: 18px; font-weight: 850; }
+.status-pill { padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 800; }
+.status-pill.offline { background: #fde8e8; border: 1px solid #f8b4b4; color: #9b1c1c; }
+.status-pill.online { background: #eafaf0; border: 1px solid #a2e0b6; color: #087d3f; }
+
+/* BUTTON STYLING OVERRIDES */
+div.stButton > button {
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    height: 48px !important;
+    transition: all 0.2s ease !important;
+    border: 1px solid #109b53 !important;
+    background: #ffffff !important;
+    color: #063d31 !important;
+}
+div.stButton > button:hover {
+    background: #edf8ef !important;
+    border-color: #087c41 !important;
+    color: #087c41 !important;
+    transform: translateY(-1px);
+}
+div.stButton > button[kind="primary"] {
+    background: linear-gradient(90deg, #109b53, #087c41) !important;
+    color: white !important;
+    border: none !important;
+    box-shadow: 0 4px 14px rgba(16,155,83,0.25) !important;
+}
+div.stButton > button[kind="primary"]:hover {
+    background: linear-gradient(90deg, #0d8848, #066635) !important;
+    box-shadow: 0 6px 18px rgba(16,155,83,0.35) !important;
+}
+
+/* CONSOLIDATED PLANT ANALYSIS CARD */
 .plant-analysis-card {
     background: white;
     border: 1px solid #d8ebd9;
     border-radius: 18px;
     padding: 24px;
     box-shadow: 0 6px 20px rgba(25,70,48,0.05);
+    margin-bottom: 15px;
 }
-.plant-analysis-header {
-    color: #073e33;
-    font-size: 16px;
-    font-weight: 850;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px;
-}
-.plant-analysis-subheader {
-    color: #087d3f;
-    font-size: 22px;
-    font-weight: 900;
-    margin-bottom: 18px;
-    border-bottom: 1px dashed #c3e2cb;
-    padding-bottom: 10px;
-}
-.analysis-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 0;
-    font-size: 15px;
-    border-bottom: 1px solid #f2f7f4;
-}
-.analysis-label {
-    color: #5d6d66;
-    font-weight: 600;
-}
-.analysis-value {
-    color: #052e25;
-    font-weight: 800;
-}
-.dosage-box {
-    margin-top: 18px;
-    background: linear-gradient(135deg, #eefaf2, #f5fcf7);
-    border: 1px solid #bee5c8;
-    border-radius: 12px;
-    padding: 14px 18px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.dosage-label {
-    color: #087d3f;
-    font-size: 13px;
-    font-weight: 850;
-    letter-spacing: 0.5px;
-}
-.dosage-value {
-    color: #055e2e;
-    font-size: 24px;
-    font-weight: 900;
-}
+.plant-analysis-header { color: #073e33; font-size: 15px; font-weight: 850; letter-spacing: 0.5px; margin-bottom: 4px; }
+.plant-analysis-subheader { color: #087d3f; font-size: 22px; font-weight: 900; margin-bottom: 16px; border-bottom: 1px dashed #c3e2cb; padding-bottom: 10px; }
+.analysis-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; font-size: 15px; border-bottom: 1px solid #f2f7f4; }
+.analysis-label { color: #5d6d66; font-weight: 600; }
+.analysis-value { color: #052e25; font-weight: 800; }
+.dosage-box { margin-top: 18px; background: linear-gradient(135deg, #eefaf2, #f5fcf7); border: 1px solid #bee5c8; border-radius: 12px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+.dosage-label { color: #087d3f; font-size: 13px; font-weight: 850; letter-spacing: 0.5px; }
+.dosage-value { color: #055e2e; font-size: 24px; font-weight: 900; }
 
 </style>
 """)
@@ -281,7 +282,7 @@ def predict_manual_image(uploaded_file):
     return None
 
 # ============================================================
-# STATE
+# STATE MANAGEMENT
 # ============================================================
 
 state = get_state()
@@ -298,29 +299,27 @@ if state:
     current_speed = esp32.get("speed", 50)
 
     ai_crop = raspberry.get("crop", "Guava")
-    ai_disease = raspberry.get("ai_prediction", "Guava Anthracnose")
-    ai_confidence = float(raspberry.get("ai_confidence", 99.99) or 99.99)
+    ai_disease = raspberry.get("ai_prediction", "Guava fruit fly")
+    ai_confidence = float(raspberry.get("ai_confidence", 89.32) or 89.32)
     ai_severity = float(raspberry.get("disease_area_percentage", 39.24) or 39.24)
     ai_pesticide_name = raspberry.get("pesticide_name", "Copper oxychloride")
-    ai_recommended_dosage = float(raspberry.get("recommended_dosage_ml", 1098.72) or 1098.72)
-    ai_segmentation_b64 = raspberry.get("segmentation_overlay")
+    ai_recommended_dosage = float(raspberry.get("recommended_dosage_ml", 11.51) or 11.51)
 else:
     spray_status = "OFFLINE"
     sprayed_amount = 0.0
     raspberry_online = False
     esp32_online = False
-    rover_status = "UNKNOWN"
+    rover_status = "STOPPED"
     current_speed = 50
 
     ai_crop = "Guava"
-    ai_disease = "Guava Anthracnose"
-    ai_confidence = 99.99
+    ai_disease = "Guava fruit fly"
+    ai_confidence = 89.32
     ai_severity = 39.24
     ai_pesticide_name = "Copper oxychloride"
-    ai_recommended_dosage = 1098.72
-    ai_segmentation_b64 = None
+    ai_recommended_dosage = 11.51
 
-# Fallback values from Session State if manually calculated
+# Store values in Session State if not initialized
 if "active_crop" not in st.session_state:
     st.session_state["active_crop"] = ai_crop
 if "active_disease" not in st.session_state:
@@ -334,7 +333,7 @@ if "active_pesticide" not in st.session_state:
 if "active_dosage" not in st.session_state:
     st.session_state["active_dosage"] = ai_recommended_dosage
 
-# Helper to render the updated Plant Analysis panel
+# Consolidated Plant Analysis Component
 def render_plant_analysis():
     st.html(f"""
     <div class="plant-analysis-card">
@@ -366,6 +365,45 @@ def render_plant_analysis():
         </div>
     </div>
     """)
+
+# Rover Controller Component (Used on Dashboard & Rover Control Page)
+def render_rover_controls(key_prefix="dash"):
+    pill_class = "online" if esp32_online else "offline"
+    pill_text = "ESP32 ONLINE" if esp32_online else "ESP32 OFFLINE"
+
+    st.html(f"""
+    <div class="rover-card">
+        <div class="rover-header">
+            <div class="rover-title">🚜 Rover Control</div>
+            <div class="status-pill {pill_class}">● {pill_text}</div>
+        </div>
+        <div style="font-size:12px; color:#5d6d66; margin-bottom:8px;">Rover Status: <b>{rover_status}</b></div>
+    </div>
+    """)
+
+    speed = st.slider("Rover Speed", 0, 100, int(current_speed), 5, key=f"{key_prefix}_speed")
+
+    # Complete 3x3 Keypad Layout with Forward, Left, Stop, Right, and Backward
+    c1, c2, c3 = st.columns([1, 1, 1])
+    with c2:
+        if st.button("⬆️ FORWARD", use_container_width=True, key=f"{key_prefix}_fwd"):
+            send_rover_command("F", speed)
+
+    c1, c2, c3 = st.columns([1, 1, 1])
+    with c1:
+        if st.button("⬅️ LEFT", use_container_width=True, key=f"{key_prefix}_left"):
+            send_rover_command("L", speed)
+    with c2:
+        if st.button("⏹️ STOP", type="primary", use_container_width=True, key=f"{key_prefix}_stop"):
+            send_rover_command("S", speed)
+    with c3:
+        if st.button("➡️️ RIGHT", use_container_width=True, key=f"{key_prefix}_right"):
+            send_rover_command("R", speed)
+
+    c1, c2, c3 = st.columns([1, 1, 1])
+    with c2:
+        if st.button("⬇️ BACKWARD", use_container_width=True, key=f"{key_prefix}_back"):
+            send_rover_command("B", speed)
 
 # ============================================================
 # SIDEBAR
@@ -439,14 +477,15 @@ if page == "🏠 Dashboard":
 
     st.html("""
     <div class="hero">
-        <div class="hero-title">🌿 Precision <span class="hero-green">Spraying Control</span></div>
-        <div class="hero-subtitle">Monitor plant health, view analysis, and execute targeted dosage spraying.</div>
+        <div class="hero-title">🌿 Precision <span class="hero-green">Spraying & Rover Control</span></div>
+        <div class="hero-subtitle">Monitor camera stream, control rover movement, and trigger precision pesticide dosage.</div>
     </div>
     """)
 
-    main_left, main_right = st.columns([1.1, 0.9])
+    col_left, col_mid, col_right = st.columns([1.1, 1.0, 0.9])
 
-    with main_left:
+    # Left Column: Live Camera Feed
+    with col_left:
         st.html("""
         <div class="panel">
             <div class="panel-heading">
@@ -456,7 +495,6 @@ if page == "🏠 Dashboard":
         </div>
         """)
 
-        # Sync manual upload image to camera feed if present
         if "uploaded_image_bytes" in st.session_state:
             st.image(st.session_state["uploaded_image_bytes"], use_container_width=True)
         else:
@@ -466,36 +504,61 @@ if page == "🏠 Dashboard":
             else:
                 st.info("No camera image available.")
 
-        if st.button("📸 CAPTURE PLANT IMAGE", use_container_width=True, key="dashboard_capture"):
+        if st.button("📸 CAPTURE PLANT IMAGE", type="primary", use_container_width=True, key="dashboard_capture"):
             response = send_capture()
             if response and response.status_code == 200:
                 if "uploaded_image_bytes" in st.session_state:
                     del st.session_state["uploaded_image_bytes"]
                 st.info("📸 Capturing new image...")
-                time.sleep(2)
+                time.sleep(1)
                 st.rerun()
 
-    with main_right:
-        # Render single formatted Plant Analysis block
+    # Middle Column: Rover Control Keypad
+    with col_mid:
+        render_rover_controls(key_prefix="dashboard_rover")
+
+    # Right Column: Plant Analysis & Sprayer Control
+    with col_right:
         render_plant_analysis()
 
-        st.write("")
+        st.html("""
+        <div class="panel">
+            <div class="panel-heading">
+                <div class="panel-title">💧 Precision Sprayer</div>
+            </div>
+        </div>
+        """)
 
-        # Sprayer Control Panel
-        st.html("""<div class="panel"><div class="panel-heading"><div class="panel-title">💧 Precision Sprayer</div></div></div>""")
         dosage = st.number_input(
             "Spray dosage (ml)",
             min_value=1.0,
             max_value=5000.0,
-            value=float(st.session_state.get("active_dosage", 1098.72)),
+            value=float(st.session_state.get("active_dosage", 11.51)),
             step=1.0,
             key="dashboard_dosage"
         )
 
-        if st.button("🚿 START PRECISION SPRAY", type="primary", use_container_width=True, key="dashboard_spray"):
+        if st.button("🚀 START PRECISION SPRAY", type="primary", use_container_width=True, key="dashboard_spray"):
             response = send_spray(dosage)
             if response and response.status_code == 200:
                 st.success(f"Precision spraying triggered: {dosage:.2f} ml")
+
+# ============================================================
+# ROVER CONTROL PAGE
+# ============================================================
+
+elif page == "🚜 Rover Control":
+
+    st.html("""
+    <div class="hero">
+        <div class="hero-title">🚜 Manual <span class="hero-green">Rover Control</span></div>
+        <div class="hero-subtitle">Adjust rover movement speed and navigate field directions manually.</div>
+    </div>
+    """)
+
+    rover_col, _ = st.columns([1.2, 0.8])
+    with rover_col:
+        render_rover_controls(key_prefix="standalone_rover")
 
 # ============================================================
 # AI DETECTION PAGE
@@ -516,7 +579,7 @@ elif page == "🌿 AI Detection":
         st.html("""
         <div class="panel">
             <div class="panel-title">📷 Upload Plant Image</div>
-            <div class="panel-subtitle">Select an image to run AI analysis.</div>
+            <div class="panel-subtitle" style="font-size:12px; color:#5d6d66; margin-top:4px;">Select a leaf image to run AI analysis.</div>
         </div>
         """)
 
@@ -527,7 +590,6 @@ elif page == "🌿 AI Detection":
             st.image(image_bytes, caption="Uploaded Plant Image", use_container_width=True)
 
             if st.button("🔍 PROCESS AI INFERENCE", type="primary", use_container_width=True, key="ai_process_button"):
-                # Save image bytes so it displays on Live Feed / Dashboard
                 st.session_state["uploaded_image_bytes"] = image_bytes
 
                 with st.spinner("Processing plant diagnosis..."):
@@ -536,11 +598,11 @@ elif page == "🌿 AI Detection":
                 if response and response.status_code == 200:
                     res = response.json()
                     st.session_state["active_crop"] = res.get("crop", "Guava")
-                    st.session_state["active_disease"] = res.get("prediction", "Guava Anthracnose").replace("_", " ")
-                    st.session_state["active_confidence"] = float(res.get("confidence", 99.99))
+                    st.session_state["active_disease"] = res.get("prediction", "Guava fruit fly").replace("_", " ")
+                    st.session_state["active_confidence"] = float(res.get("confidence", 89.32))
                     st.session_state["active_severity"] = float(res.get("disease_area_percentage", 39.24))
                     st.session_state["active_pesticide"] = res.get("pesticide_name", "Copper oxychloride")
-                    st.session_state["active_dosage"] = float(res.get("recommended_dosage_ml", 1098.72))
+                    st.session_state["active_dosage"] = float(res.get("recommended_dosage_ml", 11.51))
                     st.success("✅ Analysis completed successfully!")
                     st.rerun()
 
@@ -548,10 +610,18 @@ elif page == "🌿 AI Detection":
         render_plant_analysis()
 
 # ============================================================
-# OTHER PAGES
+# LIVE VIEW PAGE
 # ============================================================
 
 elif page == "📷 Live View":
+
+    st.html("""
+    <div class="hero">
+        <div class="hero-title">📷 Live <span class="hero-green">Camera Stream</span></div>
+        <div class="hero-subtitle">High-resolution camera feed from Raspberry Pi sensor unit.</div>
+    </div>
+    """)
+
     if "uploaded_image_bytes" in st.session_state:
         st.image(st.session_state["uploaded_image_bytes"], use_container_width=True)
     else:
@@ -561,31 +631,50 @@ elif page == "📷 Live View":
         else:
             st.info("No camera image available.")
 
-    if st.button("📸 CAPTURE NEW IMAGE", type="primary", use_container_width=True):
+    if st.button("📸 CAPTURE NEW IMAGE", type="primary", use_container_width=True, key="liveview_capture"):
         if "uploaded_image_bytes" in st.session_state:
             del st.session_state["uploaded_image_bytes"]
         send_capture()
         st.rerun()
 
-elif page == "🚜 Rover Control":
-    speed = st.slider("Rover Speed", 0, 100, int(current_speed), 5)
-    c1, c2, c3 = st.columns(3)
-    with c2:
-        if st.button("⬆️ FORWARD", use_container_width=True): send_rover_command("F", speed)
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        if st.button("⬅️ LEFT", use_container_width=True): send_rover_command("L", speed)
-    with c2:
-        if st.button("⛔ STOP", use_container_width=True): send_rover_command("S", speed)
-    with c3:
-        if st.button("➡️ RIGHT", use_container_width=True): send_rover_command("R", speed)
+# ============================================================
+# SPRAYER CONTROL PAGE
+# ============================================================
 
 elif page == "💧 Sprayer Control":
-    dosage = st.number_input("Spray dosage (ml)", min_value=1.0, max_value=5000.0, value=float(st.session_state.get("active_dosage", 1098.72)))
-    if st.button("START PRECISION SPRAY", type="primary", use_container_width=True):
-        send_spray(dosage)
-        st.success(f"Dispensary activated for {dosage:.2f} ml.")
+
+    st.html("""
+    <div class="hero">
+        <div class="hero-title">💧 Precision <span class="hero-green">Sprayer Calibration</span></div>
+        <div class="hero-subtitle">Configure pesticide liquid dosage and execute target spraying.</div>
+    </div>
+    """)
+
+    spray_col, _ = st.columns([1.0, 1.0])
+    with spray_col:
+        dosage = st.number_input(
+            "Spray dosage (ml)",
+            min_value=1.0,
+            max_value=5000.0,
+            value=float(st.session_state.get("active_dosage", 11.51)),
+            key="standalone_spray_dosage"
+        )
+        if st.button("🚀 START PRECISION SPRAY", type="primary", use_container_width=True, key="standalone_spray_btn"):
+            send_spray(dosage)
+            st.success(f"Dispensary activated for {dosage:.2f} ml.")
+
+# ============================================================
+# SETTINGS PAGE
+# ============================================================
 
 elif page == "⚙️ Settings":
-    st.subheader("Backend URL")
+
+    st.html("""
+    <div class="hero">
+        <div class="hero-title">⚙️ System <span class="hero-green">Settings</span></div>
+        <div class="hero-subtitle">Configuration parameters and connected API endpoint metadata.</div>
+    </div>
+    """)
+
+    st.subheader("Backend Service Endpoint")
     st.code(BACKEND_URL)
