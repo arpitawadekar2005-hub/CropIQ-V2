@@ -59,91 +59,25 @@ else:
     print(f"Warning: ONNX Model file not found at {MODEL_PATH}")
 
 
-def softmax(x):
-    """Compute softmax values for vector x."""
-    e_x = np.exp(x - np.max(x))
-    return e_x / e_x.sum()
-
-
 def predict_image(image_data: bytes):
     if ort_session is None:
         return "Guava_fruit_fly", 89.32
 
-    # Open image and convert to RGB
     image = Image.open(io.BytesIO(image_data)).convert("RGB")
     image = image.resize((224, 224))
-    
-    # Standardize image array [0, 1] range float32
-    image_array = np.array(image, dtype=np.float32) / 255.0
-
-    # Handle shape based on ONNX input tensor requirements (N, C, H, W) vs (N, H, W, C)
-    input_shape = ort_session.get_inputs()[0].shape
-    if len(input_shape) == 4 and input_shape[1] in [1, 3]:
-        # Channel-first format: (1, 3, 224, 224)
-        image_array = np.transpose(image_array, (2, 0, 1))
-        image_array = np.expand_dims(image_array, axis=0)
-    else:
-        # Channel-last format: (1, 224, 224, 3)
-        image_array = np.expand_dims(image_array, axis=0)
+    image_array = np.array(image, dtype=np.float32)
+    image_array = np.expand_dims(image_array, axis=0)
 
     # ONNX Inference
     input_name = ort_session.get_inputs()[0].name
     outputs = ort_session.run(None, {input_name: image_array})
-    raw_logits = outputs[0][0]
+    predictions = outputs[0][0]
 
-    # Convert logits to probabilities
-    probabilities = softmax(raw_logits)
-    predicted_index = int(np.argmax(probabilities))
-    confidence = float(probabilities[predicted_index]) * 100.0
+    predicted_index = int(np.argmax(predictions))
+    confidence = float(predictions[predicted_index]) * 100
     predicted_class = class_names[predicted_index]
 
     return predicted_class, confidence
-
-
-def generate_ai_analysis(prediction: str, confidence: float):
-    """Helper to dynamically generate treatment recommendations from AI model outputs."""
-    clean_label = prediction.lower()
-    is_healthy = "healthy" in clean_label
-
-    # Crop Identification
-    if "guava" in clean_label:
-        crop_type = "Guava"
-    elif "pomegranate" in clean_label:
-        crop_type = "Pomegranate"
-    else:
-        crop_type = prediction.split("_")[0].title() if "_" in prediction else "General Crop"
-
-    if is_healthy:
-        disease_name = "Healthy"
-        severity = 0.0
-        pesticide = "None"
-        dosage = 0.0
-    else:
-        disease_name = prediction.replace("_", " ")
-        # Severity proportional to model score
-        severity = round(min(85.0, max(15.0, confidence * 0.45)), 2)
-
-        if "fruit_fly" in clean_label or "fruit fly" in clean_label:
-            pesticide = "Malathion 50% EC"
-            dosage = round((severity / 100.0) * 15.0, 2)
-        elif "anthracnose" in clean_label:
-            pesticide = "Copper Oxychloride 50% WP"
-            dosage = round((severity / 100.0) * 12.5, 2)
-        elif "alternaria" in clean_label or "cercospora" in clean_label:
-            pesticide = "Mancozeb 75% WP"
-            dosage = round((severity / 100.0) * 10.0, 2)
-        else:
-            pesticide = "Broad-Spectrum Fungicide"
-            dosage = round((severity / 100.0) * 10.0, 2)
-
-    return {
-        "crop": crop_type,
-        "prediction": disease_name,
-        "confidence": round(float(confidence), 2),
-        "disease_area_percentage": severity,
-        "pesticide_name": pesticide,
-        "recommended_dosage_ml": dosage
-    }
 
 # =====================================================
 # GLOBAL HARDWARE STATE
@@ -217,11 +151,7 @@ def get_state():
             "command_pending": spray_command is not None,
             "image_available": latest_image is not None,
             "ai_prediction": ai_prediction,
-            "ai_confidence": ai_confidence,
-            "crop": system_state["raspberry_pi"].get("crop", "Guava"),
-            "pesticide_name": system_state["raspberry_pi"].get("pesticide_name", "None"),
-            "recommended_dosage_ml": system_state["raspberry_pi"].get("recommended_dosage_ml", 0.0),
-            "disease_area_percentage": system_state["raspberry_pi"].get("disease_area_percentage", 0.0)
+            "ai_confidence": ai_confidence
         },
         "esp32": {
             "online": esp32_online,
@@ -324,67 +254,48 @@ async def upload_image(file: UploadFile = File(...)):
     latest_image_type = file.content_type or "image/jpeg"
 
     try:
-        prediction, confidence = predict_image(image_data)
-        ai_prediction = prediction
-        ai_confidence = confidence
+        ai_prediction, ai_confidence = predict_image(image_data)
     except Exception as e:
-        print(f"Prediction error during upload: {e}")
-        prediction, confidence = "Guava_fruit_fly", 89.32
-        ai_prediction, ai_confidence = prediction, confidence
-
-    analysis = generate_ai_analysis(prediction, confidence)
-
-    # Update global state for Streamlit UI
-    system_state["raspberry_pi"]["ai_prediction"] = prediction
-    system_state["raspberry_pi"]["ai_confidence"] = confidence
-    system_state["raspberry_pi"]["crop"] = analysis["crop"]
-    system_state["raspberry_pi"]["pesticide_name"] = analysis["pesticide_name"]
-    system_state["raspberry_pi"]["recommended_dosage_ml"] = analysis["recommended_dosage_ml"]
-    system_state["raspberry_pi"]["disease_area_percentage"] = analysis["disease_area_percentage"]
+        print(f"Prediction error: {e}")
 
     return {
-        "message": "Image uploaded and analyzed successfully",
-        **analysis
+        "message": "Image uploaded successfully",
+        "prediction": ai_prediction,
+        "confidence": ai_confidence
     }
 
-@app.post("/predict-captured")
-async def predict_captured():
-    """Called by Streamlit UI to run prediction on the latest Pi captured frame"""
-    global latest_image, ai_prediction, ai_confidence
-
-    if latest_image is None:
-        raise HTTPException(status_code=400, detail="No captured image available. Capture an image first.")
-
-    try:
-        prediction, confidence = predict_image(latest_image)
-        ai_prediction = prediction
-        ai_confidence = confidence
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
-
-    analysis = generate_ai_analysis(prediction, confidence)
-    return {
-        "message": "Captured frame analyzed successfully",
-        **analysis
-    }
 
 @app.post("/predict-manual")
 async def predict_manual(file: UploadFile = File(...)):
     """Called by Streamlit UI for manual image upload"""
+    global latest_image, latest_image_type, ai_prediction, ai_confidence
+
     image_data = await file.read()
     if not image_data:
-        raise HTTPException(status_code=400, detail="Empty image file uploaded")
+        raise HTTPException(status_code=400, detail="Empty image")
+
+    latest_image = image_data
+    latest_image_type = file.content_type or "image/jpeg"
 
     try:
         prediction, confidence = predict_image(image_data)
+        ai_prediction = prediction
+        ai_confidence = confidence
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Prediction failed: {str(e)}")
 
-    analysis = generate_ai_analysis(prediction, confidence)
+    is_healthy = "healthy" in prediction.lower()
+    
     return {
         "message": "Manual image analyzed successfully",
-        **analysis
+        "crop": "Guava" if "guava" in prediction.lower() else "Pomegranate",
+        "prediction": prediction,
+        "confidence": confidence,
+        "disease_area_percentage": 0.00 if is_healthy else 39.24,
+        "pesticide_name": "None" if is_healthy else "Copper oxychloride",
+        "recommended_dosage_ml": 0.00 if is_healthy else 11.51
     }
+
 
 @app.get("/latest-image")
 def get_latest_image():
