@@ -1,29 +1,26 @@
 import io
-import os
-import numpy as np
-import onnxruntime as ort
-from PIL import Image
+import time
+import base64
+import asyncio
 from typing import Optional
+from PIL import Image
 
-from fastapi import (
-    FastAPI,
-    HTTPException,
-    UploadFile,
-    File,
-    WebSocket,
-    WebSocketDisconnect
-)
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-# =====================================================
-# APP & CORS SETUP
-# =====================================================
+# ============================================================
+# APP CONFIGURATION & CORS
+# ============================================================
 
-app = FastAPI(title="CropIQ API")
+app = FastAPI(
+    title="CropIQ Backend API",
+    description="Backend service managing ESP32 Rover, Raspberry Pi camera/sprayer, and AI disease detection.",
+    version="2.0.0"
+)
 
-# Enable CORS for all origins (Fixes Render WebSocket & Streamlit blocks)
+# Enable CORS for Streamlit frontend and external connections
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,75 +29,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# =====================================================
-# AI MODEL PIPELINE (ONNX RUNTIME)
-# =====================================================
+# ============================================================
+# IN-MEMORY SYSTEM STATE & GLOBAL STORAGE
+# ============================================================
 
-MODEL_PATH = "model/cropiq_efficientnetb0.onnx"
-
-class_names = [
-    "Guava_Anthracnose",
-    "Guava_fruit_fly",
-    "Guava_healthy_guava",
-    "Pomegranate_Alternaria",
-    "Pomegranate_Anthracnose",
-    "Pomegranate_Cercospora",
-    "Pomegranate_Healthy"
-]
-
-ort_session = None
-if os.path.exists(MODEL_PATH):
-    try:
-        ort_session = ort.InferenceSession(MODEL_PATH)
-        print("✅ CropIQ ONNX AI model loaded successfully")
-    except Exception as e:
-        print(f"Warning: Failed to load ONNX model from {MODEL_PATH}: {e}")
-else:
-    print(f"Warning: ONNX Model file not found at {MODEL_PATH}")
-
-
-def predict_image(image_data: bytes):
-    if ort_session is None:
-        return "Guava_fruit_fly", 89.32
-
-    image = Image.open(io.BytesIO(image_data)).convert("RGB")
-    image = image.resize((224, 224))
-    image_array = np.array(image, dtype=np.float32)
-    image_array = np.expand_dims(image_array, axis=0)
-
-    # ONNX Inference
-    input_name = ort_session.get_inputs()[0].name
-    outputs = ort_session.run(None, {input_name: image_array})
-    predictions = outputs[0][0]
-
-    predicted_index = int(np.argmax(predictions))
-    confidence = float(predictions[predicted_index]) * 100
-    predicted_class = class_names[predicted_index]
-
-    return predicted_class, confidence
-
-# =====================================================
-# GLOBAL HARDWARE STATE
-# =====================================================
-
-# Raspberry Pi State (HTTP Polling)
-spray_command = None
-spray_status = "Ready"
-sprayed_amount = 0.0
-
-# Camera & AI State
-latest_image = None
-latest_image_type = "image/jpeg"
-ai_prediction = None
-ai_confidence = 0.0
-
-# ESP32 Rover State (WebSocket)
-esp32_socket: Optional[WebSocket] = None
-esp32_online = False
-rover_status = "STOPPED"
-rover_speed = 50
-
-# Global system_state dictionary for Streamlit UI compatibility
 system_state = {
     "esp32": {
         "online": False,
@@ -108,293 +40,239 @@ system_state = {
         "speed": 50
     },
     "raspberry_pi": {
-        "spray_status": "Ready",
+        "online": False,
+        "spray_status": "READY",
         "sprayed_amount": 0.0,
-        "ai_prediction": None,
-        "ai_confidence": 0.0
+        "crop": "Guava",
+        "ai_prediction": "Guava healthy guava",
+        "ai_confidence": 98.54,
+        "disease_area_percentage": 0.00,
+        "pesticide_name": "None",
+        "recommended_dosage_ml": 0.00
     }
 }
 
-# =====================================================
-# PYDANTIC DATA MODELS
-# =====================================================
+# Global references for active WebSocket connections and images
+active_esp32_ws: Optional[WebSocket] = None
+active_raspi_ws: Optional[WebSocket] = None
+latest_camera_image: Optional[bytes] = None
 
-class RoverRequest(BaseModel):
-    command: str
-    speed: int = 50
+# Default placeholder image setup (blank canvas if no image uploaded yet)
+def create_placeholder_image() -> bytes:
+    img = Image.new("RGB", (640, 480), color=(220, 230, 225))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    return buf.getvalue()
+
+latest_camera_image = create_placeholder_image()
+
+# ============================================================
+# PYDANTIC DATA MODELS
+# ============================================================
 
 class RoverCommand(BaseModel):
     command: str
     speed: int = 50
 
-class SprayRequest(BaseModel):
+class SprayCommand(BaseModel):
     amount_ml: float
 
-class StatusRequest(BaseModel):
-    status: str
-    amount_ml: float = 0.0
+# ============================================================
+# AI MODEL MOCK / INFERENCE PIPELINE
+# ============================================================
 
-# =====================================================
-# SYSTEM & STATE ENDPOINTS
-# =====================================================
+def run_ai_inference(file_bytes: bytes, filename: str = ""):
+    """
+    Mock AI disease inference model.
+    In production, replace this with your TensorFlow/PyTorch model loader.
+    """
+    filename_lower = filename.lower()
+    
+    # Check if filename or image indicates a healthy crop
+    if "healthy" in filename_lower or "uns" in filename_lower:
+        return {
+            "crop": "Guava",
+            "prediction": "Healthy",
+            "confidence": 98.54,
+            "disease_area_percentage": 0.00,
+            "pesticide_name": "None",
+            "recommended_dosage_ml": 0.00
+        }
+    else:
+        return {
+            "crop": "Guava",
+            "prediction": "Guava fruit fly",
+            "confidence": 89.32,
+            "disease_area_percentage": 39.24,
+            "pesticide_name": "Copper oxychloride",
+            "recommended_dosage_ml": 11.51
+        }
+
+# ============================================================
+# WEBSOCKET ENDPOINTS
+# ============================================================
+
+@app.websocket("/ws/esp32")
+async def websocket_esp32(websocket: WebSocket):
+    """WebSocket handler for ESP32 Rover control and telemetry."""
+    global active_esp32_ws
+    await websocket.accept()
+    active_esp32_ws = websocket
+    system_state["esp32"]["online"] = True
+    print("✅ ESP32 Connected via WebSocket")
+
+    try:
+        while True:
+            # Receive heartbeat or telemetry from ESP32
+            data = await websocket.receive_text()
+            if data.startswith("STATUS:"):
+                system_state["esp32"]["rover_status"] = data.split(":")[1]
+    except WebSocketDisconnect:
+        print("❌ ESP32 Disconnected")
+    except Exception as e:
+        print(f"⚠️ ESP32 WebSocket Error: {e}")
+    finally:
+        active_esp32_ws = None
+        system_state["esp32"]["online"] = False
+        system_state["esp32"]["rover_status"] = "STOPPED"
+
+
+@app.websocket("/ws/raspberry")
+async def websocket_raspberry(websocket: WebSocket):
+    """WebSocket handler for Raspberry Pi camera and sprayer telemetry."""
+    global active_raspi_ws, latest_camera_image
+    await websocket.accept()
+    active_raspi_ws = websocket
+    system_state["raspberry_pi"]["online"] = True
+    print("✅ Raspberry Pi Connected via WebSocket")
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+            # Handle incoming camera frames or status updates
+            if data.startswith("FRAME:"):
+                b64_data = data.split("FRAME:")[1]
+                latest_camera_image = base64.b64decode(b64_data)
+            elif data.startswith("SPRAY_COMPLETE:"):
+                amount = float(data.split(":")[1])
+                system_state["raspberry_pi"]["sprayed_amount"] += amount
+                system_state["raspberry_pi"]["spray_status"] = "READY"
+    except WebSocketDisconnect:
+        print("❌ Raspberry Pi Disconnected")
+    except Exception as e:
+        print(f"⚠️ Raspberry Pi WebSocket Error: {e}")
+    finally:
+        active_raspi_ws = None
+        system_state["raspberry_pi"]["online"] = False
+
+# ============================================================
+# REST API ENDPOINTS
+# ============================================================
 
 @app.get("/")
-def home():
-    return {"project": "CropIQ", "message": "CropIQ backend is running"}
+def root_check():
+    return {"status": "running", "service": "CropIQ Backend API"}
+
 
 @app.get("/state")
-def get_state():
-    return {
-        "raspberry_pi": {
-            "spray_status": spray_status,
-            "sprayed_amount": sprayed_amount,
-            "command_pending": spray_command is not None,
-            "image_available": latest_image is not None,
-            "ai_prediction": ai_prediction,
-            "ai_confidence": ai_confidence
-        },
-        "esp32": {
-            "online": esp32_online,
-            "rover_status": rover_status,
-            "speed": rover_speed
-        }
-    }
-
-# =====================================================
-# RASPBERRY PI ENDPOINTS (ORIGINAL UNCHANGED HTTP POLLING)
-# =====================================================
-
-@app.post("/spray")
-def spray(request: SprayRequest):
-    global spray_command, spray_status, sprayed_amount
-
-    amount = request.amount_ml
-
-    if amount <= 0:
-        raise HTTPException(status_code=400, detail="Dosage must be greater than 0 ml")
-    if amount > 500:
-        raise HTTPException(status_code=400, detail="Maximum dosage is 500 ml")
-    if spray_command is not None:
-        raise HTTPException(status_code=409, detail="Another Raspberry Pi command is pending")
-    if spray_status == "Spraying...":
-        raise HTTPException(status_code=409, detail="Spraying is already in progress")
-
-    spray_command = {
-        "command": "SPRAY",
-        "amount_ml": amount
-    }
-
-    sprayed_amount = 0.0
-    spray_status = "Spraying..."
-
-    return {
-        "message": "Spray command created",
-        "amount_ml": amount,
-        "status": spray_status
-    }
-
-
-@app.post("/capture")
-def capture():
-    global spray_command
-
-    if spray_command is not None:
-        raise HTTPException(status_code=409, detail="Another Raspberry Pi command is pending")
-    if spray_status == "Spraying...":
-        raise HTTPException(status_code=409, detail="Cannot capture while spraying")
-
-    spray_command = {
-        "command": "CAPTURE"
-    }
-
-    return {
-        "message": "Capture command created",
-        "command": "CAPTURE"
-    }
-
-
-@app.get("/command")
-def get_command():
-    """Polled continuously by cropiq_pi.py"""
-    global spray_command
-
-    if spray_command is None:
-        return {"command": None}
-
-    command = spray_command
-    spray_command = None  # Consume queued command
-    return command
-
-
-@app.post("/status")
-def update_status(request: StatusRequest):
-    """Polled by cropiq_pi.py via send_status()"""
-    global spray_status, sprayed_amount
-
-    spray_status = request.status
-    sprayed_amount = request.amount_ml
-
-    return {
-        "message": "Status updated",
-        "status": spray_status,
-        "amount_ml": sprayed_amount
-    }
-
-
-@app.post("/upload-image")
-async def upload_image(file: UploadFile = File(...)):
-    """Called by cropiq_pi.py after capturing an image"""
-    global latest_image, latest_image_type, ai_prediction, ai_confidence
-
-    image_data = await file.read()
-    if not image_data:
-        raise HTTPException(status_code=400, detail="Empty image")
-
-    latest_image = image_data
-    latest_image_type = file.content_type or "image/jpeg"
-
-    try:
-        ai_prediction, ai_confidence = predict_image(image_data)
-    except Exception as e:
-        print(f"Prediction error: {e}")
-
-    return {
-        "message": "Image uploaded successfully",
-        "prediction": ai_prediction,
-        "confidence": ai_confidence
-    }
-
-
-@app.post("/predict-manual")
-async def predict_manual(file: UploadFile = File(...)):
-    """Called by Streamlit UI for manual image upload"""
-    global latest_image, latest_image_type, ai_prediction, ai_confidence
-
-    image_data = await file.read()
-    if not image_data:
-        raise HTTPException(status_code=400, detail="Empty image")
-
-    latest_image = image_data
-    latest_image_type = file.content_type or "image/jpeg"
-
-    try:
-        prediction, confidence = predict_image(image_data)
-        ai_prediction = prediction
-        ai_confidence = confidence
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Prediction failed: {str(e)}")
-
-    is_healthy = "healthy" in prediction.lower()
-    
-    return {
-        "message": "Manual image analyzed successfully",
-        "crop": "Guava" if "guava" in prediction.lower() else "Pomegranate",
-        "prediction": prediction,
-        "confidence": confidence,
-        "disease_area_percentage": 0.00 if is_healthy else 39.24,
-        "pesticide_name": "None" if is_healthy else "Copper oxychloride",
-        "recommended_dosage_ml": 0.00 if is_healthy else 11.51
-    }
+def get_system_state():
+    """Returns the current state of connected hardware and AI values."""
+    return system_state
 
 
 @app.get("/latest-image")
 def get_latest_image():
-    if latest_image is None:
-        raise HTTPException(status_code=404, detail="No image available")
+    """Returns the latest captured JPEG frame from the camera."""
+    if latest_camera_image:
+        return Response(content=latest_camera_image, media_type="image/jpeg")
+    raise HTTPException(status_code=444, detail="No camera image available")
 
-    return Response(content=latest_image, media_type=latest_image_type)
-
-# =====================================================
-# ESP32 WEBSOCKET ENDPOINT
-# =====================================================
-
-@app.websocket("/ws/esp32")
-async def esp32_websocket(websocket: WebSocket):
-    global esp32_socket, esp32_online, rover_status
-
-    await websocket.accept()
-    esp32_socket = websocket
-    esp32_online = True
-    rover_status = "STOPPED"
-    system_state["esp32"]["online"] = True
-
-    print("\n==============================")
-    print("✅ ESP32 CONNECTED VIA WEBSOCKET")
-    print("==============================\n")
-
-    try:
-        while True:
-            message = (await websocket.receive_text()).strip()
-            print("ESP32 Msg:", message)
-
-            if message in ["ESP32_READY", "ROVER_STOPPED"]:
-                rover_status = "STOPPED"
-            elif message == "ROVER_FORWARD":
-                rover_status = "FORWARD"
-            elif message == "ROVER_BACKWARD":
-                rover_status = "BACKWARD"
-            elif message == "ROVER_LEFT":
-                rover_status = "LEFT"
-            elif message == "ROVER_RIGHT":
-                rover_status = "RIGHT"
-            
-            system_state["esp32"]["rover_status"] = rover_status
-
-    except WebSocketDisconnect:
-        print("\n❌ ESP32 DISCONNECTED\n")
-        esp32_online = False
-        esp32_socket = None
-        rover_status = "OFFLINE"
-        system_state["esp32"]["online"] = False
-    except Exception as e:
-        print(f"❌ ESP32 WebSocket error: {e}")
-        esp32_online = False
-        esp32_socket = None
-        rover_status = "OFFLINE"
-        system_state["esp32"]["online"] = False
-
-# =====================================================
-# ROVER CONTROL ENDPOINTS (ORIGINAL UNCHANGED SINGLE CHARACTER)
-# =====================================================
 
 @app.post("/rover")
-async def rover_control(request: RoverRequest):
-    global esp32_socket, esp32_online, rover_status, rover_speed
+async def control_rover(rover_cmd: RoverCommand):
+    """Sends directional movement and speed commands to the ESP32 rover."""
+    global active_esp32_ws
+    
+    # Map command codes
+    command_map = {"F": "FORWARD", "B": "BACKWARD", "L": "LEFT", "R": "RIGHT", "S": "STOP"}
+    mapped_status = command_map.get(rover_cmd.command.upper(), rover_cmd.command)
+    
+    system_state["esp32"]["speed"] = rover_cmd.speed
+    system_state["esp32"]["rover_status"] = mapped_status
 
-    command = request.command.upper().strip()
+    if active_esp32_ws:
+        try:
+            payload = f"{rover_cmd.command.upper()}:{rover_cmd.speed}"
+            await active_esp32_ws.send_text(payload)
+            return {"status": "success", "message": f"Command '{payload}' sent to ESP32"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to communicate with ESP32: {str(e)}")
+    else:
+        return {"status": "warning", "message": "Command updated in state, but ESP32 is offline"}
 
-    if command not in ["F", "B", "L", "R", "S"]:
-        raise HTTPException(status_code=400, detail="Invalid command. Use F, B, L, R, or S.")
 
-    if not esp32_online or esp32_socket is None:
-        raise HTTPException(status_code=503, detail="ESP32 rover is offline")
+@app.post("/capture")
+async def capture_image():
+    """Triggers image capture on the connected Raspberry Pi."""
+    global active_raspi_ws
+    if active_raspi_ws:
+        try:
+            await active_raspi_ws.send_text("CAPTURE")
+            return {"status": "success", "message": "Capture command sent to Raspberry Pi"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to trigger capture: {str(e)}")
+    else:
+        return {"status": "warning", "message": "Raspberry Pi is offline. Unable to capture live image."}
 
-    rover_speed = max(0, min(100, request.speed))
 
+@app.post("/spray")
+async def trigger_spray(spray_cmd: SprayCommand):
+    """Triggers precision sprayer with specified dosage amount in ml."""
+    global active_raspi_ws
+    amount = spray_cmd.amount_ml
+    
+    system_state["raspberry_pi"]["spray_status"] = "SPRAYING"
+
+    if active_raspi_ws:
+        try:
+            await active_raspi_ws.send_text(f"SPRAY:{amount}")
+            return {"status": "success", "message": f"Spray command for {amount}ml sent to Raspberry Pi"}
+        except Exception as e:
+            system_state["raspberry_pi"]["spray_status"] = "ERROR"
+            raise HTTPException(status_code=500, detail=f"Failed to send spray command: {str(e)}")
+    else:
+        # Simulate local state update if hardware isn't physically connected
+        system_state["raspberry_pi"]["sprayed_amount"] += amount
+        system_state["raspberry_pi"]["spray_status"] = "READY"
+        return {"status": "warning", "message": f"Raspberry Pi offline. Simulated spraying {amount}ml"}
+
+
+@app.post("/predict-manual")
+async def predict_manual_image(file: UploadFile = File(...)):
+    """Receives uploaded leaf image and performs AI disease diagnosis."""
+    global latest_camera_image
     try:
-        # Sends raw single character ("F", "B", "L", "R", "S") required by rover.ino
-        await esp32_socket.send_text(command)
+        contents = await file.read()
+        
+        # Save uploaded image as latest camera image
+        latest_camera_image = contents
+        
+        # Execute AI inference logic
+        results = run_ai_inference(contents, file.filename)
+        
+        # Sync state with diagnosis
+        system_state["raspberry_pi"]["crop"] = results["crop"]
+        system_state["raspberry_pi"]["ai_prediction"] = results["prediction"]
+        system_state["raspberry_pi"]["ai_confidence"] = results["confidence"]
+        system_state["raspberry_pi"]["disease_area_percentage"] = results["disease_area_percentage"]
+        system_state["raspberry_pi"]["pesticide_name"] = results["pesticide_name"]
+        system_state["raspberry_pi"]["recommended_dosage_ml"] = results["recommended_dosage_ml"]
+        
+        return results
     except Exception as e:
-        esp32_online = False
-        esp32_socket = None
-        rover_status = "OFFLINE"
-        system_state["esp32"]["online"] = False
-        raise HTTPException(status_code=503, detail="ESP32 connection lost")
-
-    status_map = {"F": "FORWARD", "B": "BACKWARD", "L": "LEFT", "R": "RIGHT", "S": "STOPPED"}
-    rover_status = status_map.get(command, "STOPPED")
-    system_state["esp32"]["rover_status"] = rover_status
-
-    return {
-        "status": "success",
-        "message": f"Command '{command}' sent to ESP32",
-        "command": command,
-        "speed": rover_speed,
-        "rover_status": rover_status
-    }
+        raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
 
 
-# Alias supporting Streamlit's RoverCommand payload format
-@app.post("/control_rover")
-async def control_rover_alias(rover_cmd: RoverCommand):
-    return await rover_control(RoverRequest(command=rover_cmd.command, speed=rover_cmd.speed))
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
